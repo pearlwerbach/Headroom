@@ -1,0 +1,188 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #f7f4ee;
+  --foreground: #142132;
+  --surface-strong: #6b78a6;
+  --muted-strong: #7b6a4f;
+  --bg-wash-primary: rgba(126, 137, 193, 0.14);
+  --bg-wash-secondary: rgba(173, 183, 226, 0.1);
+  --bg-base-start: #fbfafd;
+  --bg-base-end: #f1f3f8;
+  --color-primary: #56638f;
+  --color-secondary: #7885ad;
+  --color-accent: #dfe4f4;
+  --color-accent-strong: #46527a;
+  --color-accent-soft: #eef1f8;
+  --color-accent-border: #c9d1e6;
+  --color-accent-contrast: #f5f7fc;
+  --color-accent-tint: rgba(86, 99, 143, 0.16);
+  --color-accent-shadow: rgba(86, 99, 143, 0.28);
+}
+
+:root[data-theme="warm-amber"] {
+  --surface-strong: #b28b61;
+  --bg-wash-primary: rgba(196, 154, 112, 0.14);
+  --bg-wash-secondary: rgba(227, 198, 168, 0.11);
+  --bg-base-start: #fdfaf6;
+  --bg-base-end: #f6f1ea;
+  --color-primary: #a27a54;
+  --color-secondary: #c29a72;
+  --color-accent: #f1e5d7;
+  --color-accent-strong: #876343;
+  --color-accent-soft: #faf2e9;
+  --color-accent-border: #e3ccb4;
+  --color-accent-contrast: #fff8f1;
+  --color-accent-tint: rgba(162, 122, 84, 0.16);
+  --color-accent-shadow: rgba(162, 122, 84, 0.26);
+}
+
+:root[data-theme="soft-green"] {
+  --surface-strong: #73907d;
+  --bg-wash-primary: rgba(139, 171, 148, 0.14);
+  --bg-wash-secondary: rgba(188, 210, 193, 0.1);
+  --bg-base-start: #f8fbf8;
+  --bg-base-end: #eff4f0;
+  --color-primary: #6b8875;
+  --color-secondary: #90aa97;
+  --color-accent: #dfe9e1;
+  --color-accent-strong: #56705f;
+  --color-accent-soft: #eef4ef;
+  --color-accent-border: #c7d7cb;
+  --color-accent-contrast: #f7fbf8;
+  --color-accent-tint: rgba(107, 136, 117, 0.16);
+  --color-accent-shadow: rgba(107, 136, 117, 0.24);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: linear-gradient(180deg, var(--bg-base-start), var(--bg-base-end));
+  color: var(--foreground);
+  font-family: "Avenir Next", "Trebuchet MS", sans-serif;
+  min-height: 100vh;
+  transition: background 240ms ease;
+}
+
+html.theme-ready *,
+html.theme-ready *::before,
+html.theme-ready *::after {
+  transition:
+    background-color 240ms ease,
+    border-color 240ms ease,
+    color 240ms ease,
+    box-shadow 240ms ease,
+    fill 240ms ease,
+    stroke 240ms ease;
+}
+
+a,
+button {
+  transition:
+    transform 180ms ease,
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+main {
+  animation: fade-up 420ms ease both;
+}
+
+.theme-button-primary {
+  background: var(--color-primary);
+  color: var(--color-accent-contrast);
+}
+
+.theme-button-primary:hover {
+  background: var(--color-accent-strong);
+}
+
+.theme-button-soft {
+  border-color: var(--color-accent-border);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
+}
+
+.theme-button-soft:hover {
+  border-color: var(--color-primary);
+  background: var(--color-accent);
+}
+
+.theme-progress-bar {
+  background-image: linear-gradient(90deg, var(--color-secondary), var(--color-primary));
+}
+
+.theme-accent-badge {
+  background: var(--color-accent-tint);
+  color: var(--color-accent);
+}
+
+.theme-accent-text {
+  color: var(--color-secondary);
+}
+
+.theme-accent-panel {
+  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-contrast));
+  color: var(--foreground);
+}
+
+.theme-accent-card {
+  border-color: var(--color-accent-border);
+  background: var(--color-accent-soft);
+}
+
+.theme-accent-outline {
+  border-color: var(--color-accent-border);
+}
+
+.theme-page-wash {
+  background:
+    radial-gradient(circle_at_top_left, var(--bg-wash-primary), transparent 30%),
+    radial-gradient(circle_at_80%_10%, var(--bg-wash-secondary), transparent 28%),
+    linear-gradient(180deg, var(--bg-base-start), var(--bg-base-end));
+  transition: background 240ms ease;
+}
+
+.theme-shell-wash {
+  background:
+    radial-gradient(circle_at_top_left, var(--bg-wash-primary), transparent 32%),
+    radial-gradient(circle_at_top_right, var(--bg-wash-secondary), transparent 30%),
+    linear-gradient(180deg, var(--bg-base-start), var(--bg-base-end));
+  transition: background 240ms ease;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes assessment-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.assessment-enter {
+  animation: assessment-enter 220ms ease-out both;
+}
