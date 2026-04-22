@@ -1,4 +1,4 @@
-# Lilt
+# Headroom
 
 Stage 1 MVP for a calendar-aware cognitive load planner for students.
 
