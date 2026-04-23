@@ -5,7 +5,7 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["Avenir Next", "Trebuchet MS", "sans-serif"],
+        sans: ["Inter Tight", "Inter", "Avenir Next", "Trebuchet MS", "sans-serif"],
         serif: ["Iowan Old Style", "Palatino Linotype", "Book Antiqua", "serif"],
       },
     },

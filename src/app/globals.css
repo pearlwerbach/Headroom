@@ -3,23 +3,29 @@
 @tailwind utilities;
 
 :root {
-  --background: #f7f4ee;
-  --foreground: #142132;
-  --surface-strong: #6b78a6;
-  --muted-strong: #7b6a4f;
-  --bg-wash-primary: rgba(126, 137, 193, 0.14);
-  --bg-wash-secondary: rgba(173, 183, 226, 0.1);
-  --bg-base-start: #fbfafd;
-  --bg-base-end: #f1f3f8;
-  --color-primary: #56638f;
-  --color-secondary: #7885ad;
-  --color-accent: #dfe4f4;
-  --color-accent-strong: #46527a;
-  --color-accent-soft: #eef1f8;
-  --color-accent-border: #c9d1e6;
-  --color-accent-contrast: #f5f7fc;
-  --color-accent-tint: rgba(86, 99, 143, 0.16);
-  --color-accent-shadow: rgba(86, 99, 143, 0.28);
+  --background: #faf7f3;
+  --foreground: #1c1a24;
+  --surface-strong: #2c2a3a;
+  --muted-strong: #866477;
+  --bg-wash-primary: rgba(216, 167, 167, 0.05);
+  --bg-wash-secondary: rgba(183, 169, 214, 0.05);
+  --bg-base-start: #faf7f3;
+  --bg-base-end: #faf7f3;
+  --color-primary: #2c2a3a;
+  --color-secondary: #866477;
+  --color-accent: #efe7df;
+  --color-accent-strong: #242230;
+  --color-accent-soft: #ffffff;
+  --color-accent-border: #e8e2db;
+  --color-accent-contrast: #ffffff;
+  --color-accent-tint: rgba(183, 169, 214, 0.16);
+  --color-accent-shadow: rgba(0, 0, 0, 0.04);
+  --tone-sage: #7baa8d;
+  --tone-rose: #d8a7a7;
+  --tone-amber: #e2b46a;
+  --tone-lavender: #b7a9d6;
+  --tone-cool-border: #e3e6ea;
+  --surface-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
 }
 
 :root[data-theme="warm-amber"] {
@@ -65,11 +71,35 @@ html {
 }
 
 body {
-  background: linear-gradient(180deg, var(--bg-base-start), var(--bg-base-end));
+  background: var(--bg-base-start);
   color: var(--foreground);
-  font-family: "Avenir Next", "Trebuchet MS", sans-serif;
+  font-family: "Inter Tight", "Inter", "Avenir Next", "Trebuchet MS", sans-serif;
+  font-size: 16px;
+  line-height: 1.65;
+  letter-spacing: -0.01em;
   min-height: 100vh;
   transition: background 240ms ease;
+}
+
+@layer base {
+  p,
+  li,
+  dd,
+  dt,
+  label,
+  input,
+  textarea,
+  select {
+    font-family: "Inter Tight", "Inter", "Avenir Next", "Trebuchet MS", sans-serif;
+    font-size: 15.5px;
+    line-height: 1.65;
+    letter-spacing: -0.01em;
+  }
+
+  button {
+    font-family: "Inter Tight", "Inter", "Avenir Next", "Trebuchet MS", sans-serif;
+    letter-spacing: -0.01em;
+  }
 }
 
 html.theme-ready *,
@@ -109,7 +139,7 @@ main {
 
 .theme-button-soft {
   border-color: var(--color-accent-border);
-  background: var(--color-accent-soft);
+  background: #ffffff;
   color: var(--color-accent-strong);
 }
 
@@ -119,7 +149,7 @@ main {
 }
 
 .theme-progress-bar {
-  background-image: linear-gradient(90deg, var(--color-secondary), var(--color-primary));
+  background: var(--tone-lavender);
 }
 
 .theme-accent-badge {
@@ -132,13 +162,13 @@ main {
 }
 
 .theme-accent-panel {
-  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-contrast));
+  background: var(--color-accent);
   color: var(--foreground);
 }
 
 .theme-accent-card {
   border-color: var(--color-accent-border);
-  background: var(--color-accent-soft);
+  background: #ffffff;
 }
 
 .theme-accent-outline {
@@ -147,9 +177,9 @@ main {
 
 .theme-page-wash {
   background:
-    radial-gradient(circle_at_top_left, var(--bg-wash-primary), transparent 30%),
-    radial-gradient(circle_at_80%_10%, var(--bg-wash-secondary), transparent 28%),
-    linear-gradient(180deg, var(--bg-base-start), var(--bg-base-end));
+    radial-gradient(circle_at_top_left, var(--bg-wash-primary), transparent 32%),
+    radial-gradient(circle_at_80%_10%, var(--bg-wash-secondary), transparent 30%),
+    var(--bg-base-start);
   transition: background 240ms ease;
 }
 
@@ -157,7 +187,7 @@ main {
   background:
     radial-gradient(circle_at_top_left, var(--bg-wash-primary), transparent 32%),
     radial-gradient(circle_at_top_right, var(--bg-wash-secondary), transparent 30%),
-    linear-gradient(180deg, var(--bg-base-start), var(--bg-base-end));
+    var(--bg-base-start);
   transition: background 240ms ease;
 }
 

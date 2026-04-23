@@ -114,6 +114,8 @@ describe("dashboard insights", () => {
 
     expect(exerciseRead.supportingLine).not.toEqual(quietRead.supportingLine);
     expect(exerciseRead.days.some((day) => day.totalRecoveryMinutes > 0)).toBe(true);
+    expect(exerciseRead.idealRecoveryLine).not.toEqual(quietRead.idealRecoveryLine);
+    expect(exerciseRead.detectableRecoveryBlockCount).toBeGreaterThanOrEqual(2);
   });
 
   it("produces a profile-aware planning-style read", () => {
@@ -125,5 +127,59 @@ describe("dashboard insights", () => {
     const quietRead = buildPlanningStyleRead(metrics, quieterProfile);
 
     expect(transitionRead.headline).not.toEqual(quietRead.headline);
+  });
+
+  it("treats open-time-only recovery as breathing room instead of explicit praise", () => {
+    const metrics = makeMetrics();
+    metrics.weekShapeDays = [
+      {
+        label: "Mon",
+        date: new Date("2026-04-20T00:00:00.000Z"),
+        committedMinutes: 180,
+        focusWindowCount: 1,
+        fragmentedWindowCount: 0,
+        segments: [{ kind: "open", startMinute: 300, endMinute: 390, emphasis: "focus" }],
+      },
+      {
+        label: "Tue",
+        date: new Date("2026-04-21T00:00:00.000Z"),
+        committedMinutes: 120,
+        focusWindowCount: 1,
+        fragmentedWindowCount: 0,
+        segments: [{ kind: "open", startMinute: 420, endMinute: 510, emphasis: "focus" }],
+      },
+    ];
+
+    const read = buildRecoveryIslandsInsight(metrics, makeProfile());
+
+    expect(read.meaningTitle).toBe("Breathing room");
+    expect(read.summary).toContain("open");
+    expect(read.detectableRecoveryBlockCount).toBe(2);
+  });
+
+  it("can fall below the recovery panel visibility threshold", () => {
+    const metrics = makeMetrics();
+    metrics.weekShapeDays = [
+      {
+        label: "Mon",
+        date: new Date("2026-04-20T00:00:00.000Z"),
+        committedMinutes: 180,
+        focusWindowCount: 1,
+        fragmentedWindowCount: 0,
+        segments: [{ kind: "event", startMinute: 180, endMinute: 220, eventType: "meal" }],
+      },
+      {
+        label: "Tue",
+        date: new Date("2026-04-21T00:00:00.000Z"),
+        committedMinutes: 120,
+        focusWindowCount: 1,
+        fragmentedWindowCount: 0,
+        segments: [],
+      },
+    ];
+
+    const read = buildRecoveryIslandsInsight(metrics, makeProfile());
+
+    expect(read.detectableRecoveryBlockCount).toBeLessThan(2);
   });
 });

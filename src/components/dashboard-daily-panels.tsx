@@ -19,50 +19,50 @@ interface WeekTrajectorySummaryCard {
 function getTone(score: number) {
   if (score >= 70) {
     return {
-      row: "border-rose-200/80 bg-rose-50/72",
-      bar: "bg-rose-400/85",
-      text: "text-rose-800",
+      row: "border-[#E8E2DB] bg-white",
+      bar: "bg-[#D8A7A7]",
+      text: "text-[#866477]",
     };
   }
 
   if (score >= 45) {
     return {
-      row: "border-amber-200/80 bg-amber-50/72",
-      bar: "bg-amber-400/85",
-      text: "text-amber-800",
+      row: "border-[#E8E2DB] bg-white",
+      bar: "bg-[#E2B46A]",
+      text: "text-[#7b654b]",
     };
   }
 
   return {
-    row: "border-emerald-200/80 bg-emerald-50/72",
-    bar: "bg-emerald-400/85",
-    text: "text-emerald-800",
+    row: "border-[#E8E2DB] bg-white",
+    bar: "bg-[#7BAA8D]",
+    text: "text-[#5d7667]",
   };
 }
 
 function getWeekLoadClasses(tone: WeekLoadSummaryCard["tone"]) {
   switch (tone) {
     case "alert":
-      return "border-[#65556d] bg-[#343246] text-white";
+      return "border-[#2C2A3A] bg-[#2C2A3A] text-[#FFFFFF]";
     case "warm":
-      return "border-[#65556d] bg-[#343246] text-white";
+      return "border-[#2C2A3A] bg-[#2C2A3A] text-[#FFFFFF]";
     case "success":
     default:
-      return "border-[#65556d] bg-[#343246] text-white";
+      return "border-[#2C2A3A] bg-[#2C2A3A] text-[#FFFFFF]";
   }
 }
 
 function getModeClasses(mode: DailyLoadScore["operatingMode"]) {
   switch (mode) {
     case "absorb":
-      return "border-slate-200 bg-slate-100 text-slate-800";
+      return "border-transparent bg-[rgba(216,167,167,0.18)] text-[#866477]";
     case "build":
-      return "border-emerald-200 bg-emerald-50 text-emerald-800";
+      return "border-transparent bg-[rgba(123,170,141,0.18)] text-[#56735f]";
     case "recover":
-      return "border-sky-200 bg-sky-50 text-sky-800";
+      return "border-transparent bg-[rgba(183,169,214,0.18)] text-[#6d5f8b]";
     case "protect":
     default:
-      return "border-amber-200 bg-amber-50 text-amber-800";
+      return "border-transparent bg-[rgba(226,180,106,0.22)] text-[#86633b]";
   }
 }
 
@@ -86,29 +86,29 @@ function WeekLoadLens({
   return (
     <div
       className={cn(
-        "rounded-[28px] border px-5 py-4 shadow-[0_32px_84px_-42px_rgba(24,28,46,0.46)]",
+        "rounded-[28px] border px-5 py-4 shadow-[var(--surface-shadow)]",
         getWeekLoadClasses(weekLoadSummary.tone),
         className,
       )}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/60">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#C9C6D3]">
             Week load
           </p>
           <h2 className="font-serif text-[2.2rem] leading-none text-white">
             {weekLoadSummary.label}
           </h2>
         </div>
-        <p className="shrink-0 text-[2.4rem] font-semibold tracking-tight text-white">
+        <p className="shrink-0 text-[2.4rem] font-semibold tracking-tight text-[#FFFFFF]">
           {weekLoadSummary.score}
-          <span className="ml-1 text-base font-medium text-white/60">/100</span>
+          <span className="ml-1 text-base font-medium text-[#C9C6D3]">/100</span>
         </p>
       </div>
-      <p className="mt-4 text-sm leading-7 text-white/88">
+      <p className="mt-4 text-sm leading-7 text-[#FFFFFF]">
         {weekLoadSummary.interpretation}
       </p>
-      <p className="mt-3 text-sm leading-7 text-white/68">
+      <p className="mt-3 text-sm leading-7 text-[#C9C6D3]">
         {profilePlanningInsight}
       </p>
     </div>
@@ -141,7 +141,7 @@ export function DashboardDailyPanels({
   const activeDay = weekDays[activeIndex]?.day ?? null;
 
   return (
-    <section className="relative rounded-[36px] border border-white/55 bg-white/88 px-6 py-6 shadow-[0_32px_80px_-46px_rgba(15,23,42,0.44)] backdrop-blur md:px-7 md:py-7">
+    <section className="relative rounded-[36px] border border-[#E8E2DB] bg-white px-6 pb-6 pt-8 shadow-[var(--surface-shadow)] backdrop-blur md:px-7 md:pb-7 md:pt-9">
       <div className="lg:hidden">
         <WeekLoadLens
           weekLoadSummary={weekLoadSummary}
@@ -149,8 +149,8 @@ export function DashboardDailyPanels({
         />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_24.5rem] lg:items-start">
-        <div className="space-y-1">
+      <div className="grid gap-5 lg:min-h-[9.5rem] lg:grid-cols-[minmax(0,1fr)_24.5rem] lg:items-center">
+        <div className="space-y-1.5">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted-strong)]">
             Week trajectory
           </p>
@@ -167,7 +167,7 @@ export function DashboardDailyPanels({
         </div>
       </div>
 
-      <div className="mt-5 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-7 lg:gap-2.5">
+      <div className="mt-4 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-7 lg:gap-2">
         {weekDays.map(({ day, index }) => {
           const tone = getTone(day.score);
           const active = index === activeIndex;
@@ -182,11 +182,11 @@ export function DashboardDailyPanels({
               onBlur={() => setHoveredIndex(null)}
               onClick={() => setSelectedIndex(index)}
               className={cn(
-                "grid w-full gap-2.5 rounded-[22px] border px-3 py-3 text-left transition",
+                "grid min-h-[8.75rem] w-full gap-3 rounded-[22px] border px-3.5 py-3.5 text-left transition",
                 tone.row,
                 active
-                  ? "shadow-[0_22px_48px_-36px_rgba(15,23,42,0.34)] ring-1 ring-slate-300/60"
-                  : "hover:border-slate-300/90 hover:shadow-[0_18px_36px_-34px_rgba(15,23,42,0.22)]",
+                  ? "shadow-[var(--surface-shadow)] ring-1 ring-[#B7A9D6]/60"
+                  : "hover:border-[#D8A7A7] hover:shadow-[var(--surface-shadow)]",
               )}
             >
               <div className="flex items-start justify-between gap-3">
@@ -210,7 +210,7 @@ export function DashboardDailyPanels({
                 >
                   {day.modeTitle}
                 </span>
-                <div className="h-1.5 overflow-hidden rounded-full bg-white/80">
+                <div className="h-1.5 overflow-hidden rounded-full bg-[#F3EDE6]">
                   <div
                     className={cn("h-full rounded-full", tone.bar)}
                     style={{ width: `${Math.max(10, Math.min(100, day.score))}%` }}
@@ -222,7 +222,7 @@ export function DashboardDailyPanels({
         })}
       </div>
 
-      <div className="mt-5 rounded-[28px] border border-slate-200/80 bg-slate-50/88 px-5 py-5 md:px-6">
+      <div className="mt-5 rounded-[28px] border border-[#E8E2DB] bg-[#EFE7DF] px-5 py-5 md:px-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--muted-strong)]">

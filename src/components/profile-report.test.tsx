@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { ProfileOverview } from "@/components/profile-overview";
+import { ProfileReport } from "@/components/profile-report";
 import type { ProfileSnapshot } from "@/lib/profile-summary";
 import { PROFILE_MODEL_VERSION } from "@/lib/constants";
 
@@ -62,45 +62,27 @@ function makeProfile(overrides: Partial<ProfileSnapshot> = {}): ProfileSnapshot 
   };
 }
 
-describe("ProfileOverview", () => {
-  it("renders only the adaptive signal sentence and not the separate definition line", () => {
-    render(<ProfileOverview profile={makeProfile()} />);
+describe("ProfileReport", () => {
+  it("renders the editorial profile sections with the same profile content", () => {
+    render(<ProfileReport profile={makeProfile()} />);
 
-    expect(screen.getByText("Broken time quickly reduces how much demanding work stays usable.")).toBeInTheDocument();
-    expect(
-      screen.queryByText("Short gaps reduce usable work capacity"),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText("Needs uninterrupted time for demanding work"),
-    ).not.toBeInTheDocument();
-  });
-
-  it("renders the subtype summary with the fixed overview line", () => {
-    render(<ProfileOverview profile={makeProfile()} />);
-
-    expect(
-      screen.getByRole("heading", { name: "Protected-Block Planner" }),
-    ).toBeInTheDocument();
+    expect(screen.getAllByText("Protected-Block Planner")).toHaveLength(2);
     expect(
       screen.getByText(
         "Your best work depends on protected time, and once a block is broken, depth is harder to recover.",
       ),
     ).toBeInTheDocument();
+    expect(screen.getByText("How you work")).toBeInTheDocument();
+    expect(screen.getByText("Cognitive subtype")).toBeInTheDocument();
+    expect(screen.getByText("What to keep in mind")).toBeInTheDocument();
+    expect(screen.getByText("How to plan around this")).toBeInTheDocument();
   });
 
-  it("renders planning rules as a numbered list", () => {
-    render(<ProfileOverview profile={makeProfile()} />);
-
-    expect(screen.getByText("1.")).toBeInTheDocument();
-    expect(screen.getByText("2.")).toBeInTheDocument();
-    expect(screen.getByText("3.")).toBeInTheDocument();
-  });
-
-  it("does not render developer debug panels", () => {
-    render(<ProfileOverview profile={makeProfile()} />);
+  it("never renders developer-facing debug sections", () => {
+    render(<ProfileReport profile={makeProfile()} />);
 
     expect(screen.queryByText("Model debug")).not.toBeInTheDocument();
     expect(screen.queryByText("Latest save trace")).not.toBeInTheDocument();
-    expect(screen.queryByText("Profile write trace")).not.toBeInTheDocument();
+    expect(screen.queryByText("Visible card runtime trace")).not.toBeInTheDocument();
   });
 });

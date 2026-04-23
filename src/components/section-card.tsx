@@ -18,7 +18,7 @@ export function SectionCard({
   return (
     <section
       className={cn(
-        "rounded-[28px] border border-white/55 bg-white/85 p-6 shadow-[0_30px_80px_-40px_rgba(15,23,42,0.5)] backdrop-blur",
+        "rounded-[28px] border border-[#e8e2db] bg-white p-6 shadow-[var(--surface-shadow)] backdrop-blur",
         className,
       )}
     >

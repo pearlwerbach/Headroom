@@ -1,17 +1,8 @@
 import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
-import { cookies } from "next/headers";
 import { AppShell } from "@/components/app-shell";
 import { OnboardingQuiz } from "@/components/onboarding-quiz";
-import { ProfileOverview } from "@/components/profile-overview";
-import {
-  PROFILE_SAVE_TRACE_COOKIE,
-  parseProfileSaveTrace,
-} from "@/lib/profile-save-trace";
-import {
-  PROFILE_WRITE_TRACE_COOKIE,
-  parseProfileWriteTrace,
-} from "@/lib/profile-write-trace";
+import { ProfileReport } from "@/components/profile-report";
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 
@@ -26,14 +17,6 @@ export default async function OnboardingPage({
   const editMode = params?.edit === "1";
   const completeMode = params?.complete === "1";
   const returnTo = params?.returnTo === "settings" ? "settings" : "onboarding";
-  const showSaveTrace = process.env.PROFILE_MODEL_DEBUG === "true" && params?.trace === "1";
-  const cookieStore = await cookies();
-  const saveTrace = showSaveTrace
-    ? parseProfileSaveTrace(cookieStore.get(PROFILE_SAVE_TRACE_COOKIE)?.value)
-    : null;
-  const profileWriteTrace = process.env.PROFILE_MODEL_DEBUG === "true"
-    ? parseProfileWriteTrace(cookieStore.get(PROFILE_WRITE_TRACE_COOKIE)?.value)
-    : [];
   const profile = await prisma.workProfile.findFirst({
     where: { userId: user.id },
     orderBy: { updatedAt: "desc" },
@@ -50,11 +33,11 @@ export default async function OnboardingPage({
           <main>
             <div className="space-y-4">
               {completeMode ? (
-                <div className="theme-button-soft inline-flex rounded-full px-4 py-2 text-sm font-semibold">
+                <div className="inline-flex rounded-full border border-[#e3d6c8] bg-[rgba(255,249,242,0.94)] px-4 py-2 text-sm font-semibold text-[#7f6754]">
                   Profile saved
                 </div>
               ) : null}
-              <ProfileOverview
+              <ProfileReport
                 profile={profile}
                 actions={
                   <>
@@ -84,8 +67,6 @@ export default async function OnboardingPage({
                     </Link>
                   </>
                 }
-                saveTrace={saveTrace}
-                profileWriteTrace={profileWriteTrace}
               />
             </div>
           </main>

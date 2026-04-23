@@ -1,23 +1,13 @@
 import { AppShell } from "@/components/app-shell";
 import { unstable_noStore as noStore } from "next/cache";
-import { cookies } from "next/headers";
 import { ProfileOverview } from "@/components/profile-overview";
 import { SectionCard } from "@/components/section-card";
 import { StatusPill } from "@/components/status-pill";
 import {
-  clearLocalGoogleAccountStateAction,
   disconnectGoogleCalendarAction,
   updateIncludedCalendarsAction,
 } from "@/app/actions/week-analysis";
 import Link from "next/link";
-import {
-  PROFILE_SAVE_TRACE_COOKIE,
-  parseProfileSaveTrace,
-} from "@/lib/profile-save-trace";
-import {
-  PROFILE_WRITE_TRACE_COOKIE,
-  parseProfileWriteTrace,
-} from "@/lib/profile-write-trace";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { formatDateTime } from "@/lib/utils";
@@ -30,10 +20,6 @@ import {
   fetchReadableGoogleCalendars,
   resolveIncludedGoogleCalendarIds,
 } from "@/lib/google-calendar";
-import {
-  diagnoseGoogleCalendarReadForEmail,
-  listGoogleAccountDebugRows,
-} from "@/lib/google-calendar-debug";
 
 export default async function SettingsPage({
   searchParams,
@@ -43,20 +29,11 @@ export default async function SettingsPage({
   noStore();
   const user = await requireUser();
   const params = searchParams ? await searchParams : undefined;
-  const showSaveTrace = process.env.PROFILE_MODEL_DEBUG === "true" && params?.trace === "1";
   const profileSaved = params?.profileSaved === "1";
   const googleLinked = params?.googleLinked === "1";
   const googleStateReset = params?.googleStateReset === "1";
   const calendarStatusParam = typeof params?.calendar === "string" ? params.calendar : null;
-  const cookieStore = await cookies();
-  const showGoogleDebug = process.env.PROFILE_MODEL_DEBUG === "true";
-  const saveTrace = showSaveTrace
-    ? parseProfileSaveTrace(cookieStore.get(PROFILE_SAVE_TRACE_COOKIE)?.value)
-    : null;
-  const profileWriteTrace = process.env.PROFILE_MODEL_DEBUG === "true"
-    ? parseProfileWriteTrace(cookieStore.get(PROFILE_WRITE_TRACE_COOKIE)?.value)
-    : [];
-  const [profile, account, report, googleDebugRows, googleDiagnostic, userRecord] = await Promise.all([
+  const [profile, account, report, userRecord] = await Promise.all([
     prisma.workProfile.findFirst({
       where: { userId: user.id },
       orderBy: { updatedAt: "desc" },
@@ -67,10 +44,6 @@ export default async function SettingsPage({
     prisma.weekAnalysisReport.findUnique({
       where: { userId: user.id },
     }),
-    showGoogleDebug ? listGoogleAccountDebugRows() : Promise.resolve([]),
-    showGoogleDebug && user.email
-      ? diagnoseGoogleCalendarReadForEmail(user.email)
-      : Promise.resolve(null),
     prisma.user.findUnique({
       where: { id: user.id },
       select: {
@@ -300,111 +273,6 @@ export default async function SettingsPage({
           )}
         </SectionCard>
 
-        {showGoogleDebug ? (
-          <SectionCard
-            title="Google account debug"
-            eyebrow="Local-only"
-            description="Saved Google account rows and the current calendar-read diagnosis for local testing."
-          >
-            <div className="space-y-5">
-              {googleDiagnostic ? (
-                <div className="rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                    Current user diagnosis
-                  </p>
-                  <div className="mt-3 flex flex-wrap items-center gap-3">
-                    <StatusPill tone={googleDiagnostic.status === "success" ? "success" : "alert"}>
-                      {googleDiagnostic.status}
-                    </StatusPill>
-                    <StatusPill>{googleDiagnostic.email ?? "No email"}</StatusPill>
-                  </div>
-                  {googleDiagnostic.errorMessage ? (
-                    <p className="mt-3 text-sm leading-6 text-slate-700">
-                      {googleDiagnostic.errorMessage}
-                    </p>
-                  ) : null}
-                  <pre className="mt-3 overflow-x-auto rounded-[14px] bg-white px-3 py-3 text-xs leading-6 text-slate-600">
-{JSON.stringify(
-  {
-    email: googleDiagnostic.email,
-    scopes: googleDiagnostic.scopes,
-    hasRefreshToken: googleDiagnostic.hasRefreshToken,
-    providerAccountId: googleDiagnostic.providerAccountId,
-    updatedAt: googleDiagnostic.updatedAt,
-    status: googleDiagnostic.status,
-    httpStatus: googleDiagnostic.httpStatus,
-    statusText: googleDiagnostic.statusText,
-    errorBody: googleDiagnostic.errorBody,
-  },
-  null,
-  2,
-)}
-                  </pre>
-                </div>
-              ) : null}
-
-              <div className="rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                  Saved Google account rows
-                </p>
-                <div className="mt-4 space-y-4">
-                  {googleDebugRows.map((row) => (
-                    <article
-                      key={`${row.providerAccountId}-${row.updatedAt.toISOString()}`}
-                      className="rounded-[16px] bg-white px-4 py-4"
-                    >
-                      <div className="flex flex-wrap items-center gap-3">
-                        <StatusPill>{row.email ?? "No email"}</StatusPill>
-                        <StatusPill>{row.hasRefreshToken ? "Refresh token present" : "No refresh token"}</StatusPill>
-                      </div>
-                      <dl className="mt-3 grid gap-2 text-sm leading-6 text-slate-700">
-                        <div>
-                          <dt className="font-semibold text-slate-900">Provider account id</dt>
-                          <dd>{row.providerAccountId}</dd>
-                        </div>
-                        <div>
-                          <dt className="font-semibold text-slate-900">Updated</dt>
-                          <dd>{formatDateTime(row.updatedAt)}</dd>
-                        </div>
-                        <div>
-                          <dt className="font-semibold text-slate-900">Granted scopes</dt>
-                          <dd>{row.scopes.length ? row.scopes.join(" ") : "None recorded"}</dd>
-                        </div>
-                      </dl>
-                    </article>
-                  ))}
-                  {googleDebugRows.length === 0 ? (
-                    <p className="text-sm leading-6 text-slate-600">
-                      No saved Google account rows yet.
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-3">
-                <form action={clearLocalGoogleAccountStateAction}>
-                  <input type="hidden" name="mode" value="current_user" />
-                  <button
-                    type="submit"
-                    className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-500"
-                  >
-                    Clear my Google account state
-                  </button>
-                </form>
-                <form action={clearLocalGoogleAccountStateAction}>
-                  <input type="hidden" name="mode" value="stale_missing_scope" />
-                  <button
-                    type="submit"
-                    className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-500"
-                  >
-                    Remove stale missing-scope rows
-                  </button>
-                </form>
-              </div>
-            </div>
-          </SectionCard>
-        ) : null}
-
         <SectionCard
           title="Work & Recovery Profile"
           eyebrow="Saved profile"
@@ -418,8 +286,6 @@ export default async function SettingsPage({
           {profile ? (
             <ProfileOverview
               profile={profile}
-              saveTrace={saveTrace}
-              profileWriteTrace={profileWriteTrace}
               actions={
                 <Link
                   href="/onboarding?edit=1&returnTo=settings"

@@ -24,7 +24,7 @@ export function AppShell({
 }: AppShellProps) {
   const usesEditorialHeader = variant === "profileReport" || variant === "default";
   const headerClassName = usesEditorialHeader
-    ? "rounded-[32px] border border-slate-200/80 bg-[rgba(225,229,236,0.72)] px-6 py-4 text-slate-900 shadow-[0_28px_70px_-60px_rgba(15,23,42,0.35)] backdrop-blur"
+    ? "rounded-[32px] border border-[#e8e2db] bg-white px-6 py-4 text-slate-900 shadow-[var(--surface-shadow)] backdrop-blur"
     : "rounded-[32px] border border-white/50 bg-slate-950 px-6 py-5 text-white shadow-[0_32px_80px_-48px_rgba(15,23,42,0.75)]";
 
   return (
@@ -87,7 +87,7 @@ export function AppShell({
                       href={item.href}
                       className={
                         usesEditorialHeader
-                          ? "text-sm text-slate-600 transition hover:text-slate-900"
+                          ? "text-sm text-slate-600 transition hover:text-[#2c2a3a]"
                           : "rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-white/12 hover:text-white"
                       }
                     >
@@ -109,7 +109,7 @@ export function AppShell({
                 </div>
                 <AuthButton
                   mode="signout"
-                  className={usesEditorialHeader ? "bg-slate-900 text-white" : "bg-white text-slate-900"}
+                  className={usesEditorialHeader ? "bg-[#2c2a3a] text-white" : "bg-white text-slate-900"}
                 />
               </div>
             </div>

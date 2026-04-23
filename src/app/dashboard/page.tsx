@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 import { AppShell } from "@/components/app-shell";
 import { DashboardDailyPanels } from "@/components/dashboard-daily-panels";
-import { RecoveryIslandsVisual } from "@/components/recovery-islands-visual";
+import { AnalyzeWeekSubmitButton } from "@/components/analyze-week-submit-button";
+import { RecoveryIslandsVisual, RecoveryLegendCard } from "@/components/recovery-islands-visual";
 import { StatusPill } from "@/components/status-pill";
 import { analyzeWeekAction } from "@/app/actions/week-analysis";
 import { DEFAULT_WAKE_HOUR } from "@/lib/constants";
@@ -544,10 +545,10 @@ export default async function DashboardPage({
   return (
     <AppShell heading="Dashboard" userName={user.name}>
       <main className="space-y-8">
-        <section className="rounded-[28px] border border-[#e6dbd2] bg-[#f8f3ec]/95 px-5 py-4 shadow-[0_18px_48px_-36px_rgba(54,42,43,0.18)] backdrop-blur">
+        <section className="rounded-[28px] border border-[#E3E6EA] bg-[#EEF1F4] px-5 py-4 text-[#2C2A3A] shadow-[var(--surface-shadow)] backdrop-blur">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-3">
-              <h1 className="font-serif text-[2rem] leading-tight text-slate-950">
+              <h1 className="font-serif text-[2rem] leading-tight text-[#2C2A3A]">
                 Analyze My Week
               </h1>
               <div className="flex flex-wrap items-center gap-2.5">
@@ -563,12 +564,7 @@ export default async function DashboardPage({
             <div className="flex items-start lg:items-center">
               {canAnalyze ? (
                 <form action={analyzeWeekAction}>
-                  <button
-                    type="submit"
-                    className="theme-button-primary rounded-full px-5 py-3 text-sm font-semibold transition hover:-translate-y-0.5"
-                  >
-                    {primaryActionLabel}
-                  </button>
+                  <AnalyzeWeekSubmitButton idleLabel={primaryActionLabel} />
                 </form>
               ) : (
                 <Link
@@ -587,7 +583,7 @@ export default async function DashboardPage({
         </section>
 
         {!state.normalizedProfile ? (
-          <section className="rounded-[28px] border border-white/55 bg-white/85 p-6 shadow-[0_30px_80px_-40px_rgba(15,23,42,0.5)] backdrop-blur">
+          <section className="rounded-[28px] border border-[#E8E2DB] bg-white p-6 shadow-[var(--surface-shadow)] backdrop-blur">
             <h2 className="font-serif text-2xl leading-tight text-slate-900">Profile needed</h2>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
               Refresh your profile before Headroom can interpret the structure of the week against
@@ -595,7 +591,7 @@ export default async function DashboardPage({
             </p>
           </section>
         ) : !googleOAuthConfigured ? (
-          <section className="rounded-[28px] border border-white/55 bg-white/85 p-6 shadow-[0_30px_80px_-40px_rgba(15,23,42,0.5)] backdrop-blur">
+          <section className="rounded-[28px] border border-[#E8E2DB] bg-white p-6 shadow-[var(--surface-shadow)] backdrop-blur">
             <h2 className="font-serif text-2xl leading-tight text-slate-900">
               Finish local Google OAuth setup
             </h2>
@@ -605,7 +601,7 @@ export default async function DashboardPage({
             </p>
           </section>
         ) : googleUiStatus === "not_connected" ? (
-          <section className="rounded-[28px] border border-white/55 bg-white/85 p-6 shadow-[0_30px_80px_-40px_rgba(15,23,42,0.5)] backdrop-blur">
+          <section className="rounded-[28px] border border-[#E8E2DB] bg-white p-6 shadow-[var(--surface-shadow)] backdrop-blur">
             <h2 className="font-serif text-2xl leading-tight text-slate-900">
               Connect Google Calendar
             </h2>
@@ -615,7 +611,7 @@ export default async function DashboardPage({
             </p>
           </section>
         ) : googleUiStatus === "missing_calendar_access" ? (
-          <section className="rounded-[28px] border border-white/55 bg-white/85 p-6 shadow-[0_30px_80px_-40px_rgba(15,23,42,0.5)] backdrop-blur">
+          <section className="rounded-[28px] border border-[#E8E2DB] bg-white p-6 shadow-[var(--surface-shadow)] backdrop-blur">
             <h2 className="font-serif text-2xl leading-tight text-slate-900">
               Calendar access is missing
             </h2>
@@ -625,7 +621,7 @@ export default async function DashboardPage({
             </p>
           </section>
         ) : googleUiStatus === "provider_access_restricted" ? (
-          <section className="rounded-[28px] border border-white/55 bg-white/85 p-6 shadow-[0_30px_80px_-40px_rgba(15,23,42,0.5)] backdrop-blur">
+          <section className="rounded-[28px] border border-[#E8E2DB] bg-white p-6 shadow-[var(--surface-shadow)] backdrop-blur">
             <h2 className="font-serif text-2xl leading-tight text-slate-900">
               Calendar access is restricted
             </h2>
@@ -665,7 +661,7 @@ export default async function DashboardPage({
 
             <section className="grid gap-8 xl:grid-cols-[1.08fr_0.92fr] xl:items-start">
               {subtypePresentation ? (
-                <section className="rounded-[34px] border border-[#e3d2dc] bg-[#f6eff4]/94 px-7 py-7 shadow-[0_24px_58px_-42px_rgba(78,56,72,0.16)] backdrop-blur">
+                <section className="rounded-[34px] border border-[#E8E2DB] bg-white px-7 py-7 shadow-[var(--surface-shadow)] backdrop-blur">
                   <div className="space-y-2">
                     <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#7d6677]">
                       Cognitive subtype
@@ -685,7 +681,7 @@ export default async function DashboardPage({
                       <ul className="space-y-2.5 text-sm leading-7 text-slate-700">
                         {subtypeBullets.slice(0, 2).map((bullet) => (
                           <li key={bullet} className="flex items-start gap-2">
-                            <span className="mt-[11px] h-1.5 w-1.5 rounded-full bg-[#a07f95]" />
+                            <span className="mt-[11px] h-1.5 w-1.5 rounded-full bg-[#D8A7A7]" />
                             <span>{bullet}</span>
                           </li>
                         ))}
@@ -698,7 +694,7 @@ export default async function DashboardPage({
               )}
 
               {composition.length > 0 ? (
-                <section className="rounded-[32px] border border-[#e7dcc8] bg-[#f7f1e8]/92 px-7 py-7 shadow-[0_22px_52px_-42px_rgba(78,63,42,0.12)] backdrop-blur">
+                <section className="rounded-[32px] border border-[#E3E6EA] bg-[#EEF1F4] px-7 py-7 shadow-[var(--surface-shadow)] backdrop-blur">
                   <div className="space-y-2">
                     <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#8a7457]">
                       How your week is composed
@@ -716,9 +712,9 @@ export default async function DashboardPage({
                             {item.percent}% · {formatMinutesAsHours(item.minutes)}
                           </p>
                         </div>
-                        <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                        <div className="h-2 overflow-hidden rounded-full bg-white">
                           <div
-                            className="h-full rounded-full bg-slate-900/70"
+                            className="h-full rounded-full bg-[#2C2A3A]"
                             style={{ width: `${item.percent <= 0 ? 0 : Math.min(100, item.percent)}%` }}
                           />
                         </div>
@@ -737,24 +733,91 @@ export default async function DashboardPage({
             </section>
 
             <section>
-              {recoveryIslands ? (
-                <section className="rounded-[28px] border border-[#d8e2d5] bg-[#f3f6f1]/90 px-6 py-5 shadow-[0_16px_36px_-34px_rgba(52,72,56,0.1)] backdrop-blur xl:ml-[8%] xl:max-w-[72rem]">
-                  <div className="space-y-1">
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#6d7c68]">
-                      Recovery islands
-                    </p>
-                    <h2 className="font-serif text-[1.45rem] leading-tight text-slate-950">
-                      Where support is already visible
-                    </h2>
+              {recoveryIslands && recoveryIslands.detectableRecoveryBlockCount >= 2 ? (
+                <section className="rounded-[32px] border border-[#E8E2DB] bg-[linear-gradient(180deg,rgba(252,249,245,0.98),rgba(247,242,235,0.92))] px-6 py-6 shadow-[var(--surface-shadow)] backdrop-blur xl:mx-auto xl:max-w-[76rem] xl:px-8 xl:py-8">
+                  <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)] xl:items-start">
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#8f7b85]">
+                          Recovery islands
+                        </p>
+                        <h2 className="font-serif text-[1.95rem] leading-tight text-slate-900">
+                          Where support is already visible
+                        </h2>
+                      </div>
+                      <p className="max-w-3xl text-[15px] leading-7 text-slate-700">
+                        {recoveryIslands.summary}
+                      </p>
+                      <p className="max-w-3xl text-[15px] leading-7 text-slate-600">
+                        {recoveryIslands.supportingLine}
+                      </p>
+                    </div>
+
+                    <aside className="rounded-[24px] border border-[#E8E2DB] bg-[rgba(255,255,255,0.62)] px-5 py-5">
+                      <p className="text-sm font-semibold text-slate-900">
+                        {recoveryIslands.meaningTitle}
+                      </p>
+                      <div className="mt-3 space-y-3">
+                        {recoveryIslands.meaningLines.map((line) => (
+                          <p key={line} className="text-[15px] leading-7 text-slate-700">
+                            {line}
+                          </p>
+                        ))}
+                      </div>
+                      <p className="mt-4 text-[13px] leading-6 text-[#6b7b68]">
+                        {recoveryIslands.idealRecoveryLine}
+                      </p>
+                    </aside>
                   </div>
-                  <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-700">
-                    {recoveryIslands.summary}
-                  </p>
-                  <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">
-                    {recoveryIslands.supportingLine}
-                  </p>
-                  <div className="mt-4">
+
+                  <div className="mt-7">
                     <RecoveryIslandsVisual days={recoveryIslands.days} />
+                  </div>
+
+                  <div className="mt-7 grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)] xl:items-start">
+                    <div className="rounded-[22px] border border-[#E8E2DB] bg-[rgba(255,255,255,0.72)] px-5 py-4">
+                      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+                        <div>
+                          <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                            Total recovery time
+                          </p>
+                          <p className="mt-2 font-serif text-[2rem] leading-none text-slate-900">
+                            {Math.round((recoveryIslands.totalRecoveryMinutes / 60) * 10) / 10}h
+                          </p>
+                          <p className="mt-1 text-[13px] leading-6 text-slate-500">
+                            across the week
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                            Most restorative day
+                          </p>
+                          <p className="mt-2 font-serif text-[1.75rem] leading-none text-slate-900">
+                            {recoveryIslands.mostRestorativeDay?.label ?? "None yet"}
+                          </p>
+                          <p className="mt-1 text-[13px] leading-6 text-slate-500">
+                            {recoveryIslands.mostRestorativeDay
+                              ? `${formatMinutesAsHours(recoveryIslands.mostRestorativeDay.totalRecoveryMinutes)} visible`
+                              : "No visible island"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <RecoveryLegendCard />
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-[12px] leading-6 text-slate-500">
+                    {recoveryIslands.dominantRecoveryModes.length > 0 ? (
+                      <span>
+                        Most visible support: {recoveryIslands.dominantRecoveryModes.join(" and ")}
+                      </span>
+                    ) : (
+                      <span />
+                    )}
+                    <span className="text-center">
+                      These are islands, not quotas. Small moments add up.
+                    </span>
                   </div>
                 </section>
               ) : (
@@ -763,20 +826,20 @@ export default async function DashboardPage({
             </section>
 
             {cognitiveLoadSummary && cognitiveLoadSummary.score > 85 ? (
-              <section className="rounded-[32px] border border-slate-900/10 bg-slate-950 px-7 py-7 text-white shadow-[0_30px_90px_-50px_rgba(15,23,42,0.7)]">
+              <section className="rounded-[32px] border border-[#E8E2DB] bg-white px-7 py-7 text-slate-900 shadow-[var(--surface-shadow)]">
                 <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#866477]">
                     Interventions
                   </p>
-                  <h2 className="font-serif text-3xl leading-tight text-white">
+                  <h2 className="font-serif text-3xl leading-tight text-slate-950">
                     How to change the trajectory
                   </h2>
                 </div>
                 {balanceFeedback.length > 0 ? (
                   <div className="mt-4 space-y-2">
                     {balanceFeedback.slice(0, 2).map((item) => (
-                      <p key={item.title} className="text-sm leading-7 text-slate-300">
-                        <span className="font-semibold text-white">{item.title}:</span> {item.text}
+                      <p key={item.title} className="text-sm leading-7 text-slate-600">
+                        <span className="font-semibold text-slate-900">{item.title}:</span> {item.text}
                       </p>
                     ))}
                   </div>
@@ -784,14 +847,14 @@ export default async function DashboardPage({
                 <div className="mt-6 space-y-4">
                   {interventions.map((suggestion, index) => (
                     <article key={`${index}-${suggestion.label}`} className="flex items-start gap-4">
-                      <span className="theme-accent-text text-sm font-semibold">
+                      <span className="text-sm font-semibold text-[#866477]">
                         0{index + 1}
                       </span>
                       <div className="space-y-1">
-                        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">
+                        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
                           {suggestion.label}
                         </p>
-                        <p className="text-sm leading-7 text-slate-200">{suggestion.text}</p>
+                        <p className="text-sm leading-7 text-slate-700">{suggestion.text}</p>
                       </div>
                     </article>
                   ))}
@@ -800,7 +863,7 @@ export default async function DashboardPage({
             ) : null}
           </section>
         ) : (
-          <section className="rounded-[28px] border border-white/55 bg-white/85 p-6 shadow-[0_30px_80px_-40px_rgba(15,23,42,0.5)] backdrop-blur">
+          <section className="rounded-[28px] border border-[#E8E2DB] bg-white p-6 shadow-[var(--surface-shadow)] backdrop-blur">
             <h2 className="font-serif text-2xl leading-tight text-slate-900">No report yet</h2>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
               Run your first fresh read of the week from the calendars you include in Settings. If a cached
