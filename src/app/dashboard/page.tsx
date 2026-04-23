@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 import { AppShell } from "@/components/app-shell";
-import { DailyLoadTrajectory } from "@/components/daily-load-trajectory";
+import { DashboardDailyPanels } from "@/components/dashboard-daily-panels";
 import { RecoveryIslandsVisual } from "@/components/recovery-islands-visual";
 import { StatusPill } from "@/components/status-pill";
 import { analyzeWeekAction } from "@/app/actions/week-analysis";
@@ -12,6 +12,7 @@ import { requireUser } from "@/lib/session";
 import { getWeekAnalysisDashboardState } from "@/lib/week-analysis";
 import { formatDateTime } from "@/lib/utils";
 import { isGoogleOAuthConfigured } from "@/lib/auth";
+import { getSubtypePresentation } from "@/lib/profile-presentation";
 import {
   buildPlanningStyleRead,
   buildRecoveryIslandsInsight,
@@ -20,7 +21,6 @@ import {
 import {
   getGoogleCalendarUiStatus,
   getIncludedCalendarsSummary,
-  getGoogleCalendarWeekLink,
 } from "@/lib/google-calendar-ui";
 
 type DashboardState = Awaited<ReturnType<typeof getWeekAnalysisDashboardState>>;
@@ -473,7 +473,6 @@ export default async function DashboardPage({
   const calendarStatusParam = typeof params?.calendar === "string" ? params.calendar : null;
   const state = await getWeekAnalysisDashboardState(user.id);
   const googleOAuthConfigured = isGoogleOAuthConfigured();
-  const showLoadDebug = process.env.PROFILE_MODEL_DEBUG === "true";
 
   if (!state.profile) {
     redirect("/onboarding");
@@ -496,7 +495,7 @@ export default async function DashboardPage({
         : "alert";
   const statusLabel =
     googleUiStatus === "connected_ready"
-      ? "Connected and ready"
+      ? "Connected"
       : googleUiStatus === "reconnect_needed"
         ? "Reconnect needed"
         : googleUiStatus === "missing_calendar_access"
@@ -504,34 +503,7 @@ export default async function DashboardPage({
           : googleUiStatus === "provider_access_restricted"
             ? "Provider access restricted"
             : "Not connected";
-  const statusCopy =
-    googleUiStatus === "connected_ready"
-      ? hasReport
-        ? "Selected calendars are merged into one week read."
-        : "Your calendar is connected. Headroom is ready to run a fresh read of the next seven days."
-      : googleUiStatus === "reconnect_needed"
-        ? "Headroom could not refresh calendar access for this account."
-        : googleUiStatus === "missing_calendar_access"
-          ? "This Google account is linked, but it does not currently include read-only calendar access."
-          : googleUiStatus === "provider_access_restricted"
-            ? "Google allowed sign-in, but calendar data is currently restricted for this account."
-            : googleOAuthConfigured
-              ? "Google Calendar is not connected yet."
-              : "Google Calendar analysis is unavailable until local OAuth is configured.";
-  const nextStepCopy =
-    googleUiStatus === "connected_ready"
-      ? hasReport
-      : googleUiStatus === "provider_access_restricted"
-        ? "Review Google account access restrictions, then reconnect and try again."
-        : googleUiStatus === "missing_calendar_access"
-          ? "Reconnect Google Calendar and approve read-only calendar access."
-          : googleUiStatus === "reconnect_needed"
-            ? "Reconnect Google Calendar, then run a fresh analysis."
-            : googleOAuthConfigured
-              ? "Connect Google Calendar in Settings to get started."
-              : "Finish local OAuth setup before connecting Google Calendar.";
   const primaryActionLabel = hasReport ? "Re-analyze Week" : "Analyze My Week";
-  const openCalendarHref = getGoogleCalendarWeekLink();
   const calendarSourceSummary = getIncludedCalendarsSummary({
     selectedCalendarIds: state.selectedCalendarIds,
     calendars: state.availableCalendars,
@@ -545,10 +517,6 @@ export default async function DashboardPage({
     state.report && state.normalizedProfile
       ? buildCompositionInterpretation(state.report.derivedMetrics, state.normalizedProfile)
       : "";
-  const trajectorySummary =
-    state.report && state.normalizedProfile
-      ? buildTrajectorySummary(state.report.derivedMetrics, state.normalizedProfile)
-      : null;
   const balanceFeedback =
     state.report && state.normalizedProfile
       ? buildPatternFeedback(state.report.derivedMetrics, state.normalizedProfile)
@@ -565,93 +533,34 @@ export default async function DashboardPage({
     state.report && state.normalizedProfile
       ? buildPlanningStyleRead(state.report.derivedMetrics, state.normalizedProfile)
       : null;
-  const debugRawScores = state.report
-    ? state.report.derivedMetrics.dailyLoadDebug.map((day) => safeNumber(day.rawScoreBeforeScaling))
-    : [];
-  const debugDisplayScores = state.report
-    ? state.report.derivedMetrics.dailyLoadScores.map((day) => safeNumber(day.score))
-    : [];
-  const rawRange =
-    debugRawScores.length > 0
-      ? Math.max(...debugRawScores) - Math.min(...debugRawScores)
-      : 0;
-  const displayRange =
-    debugDisplayScores.length > 0
-      ? Math.max(...debugDisplayScores) - Math.min(...debugDisplayScores)
-      : 0;
-  const displayScoreCounts = debugDisplayScores.reduce<Record<number, number>>((counts, score) => {
-    counts[score] = (counts[score] ?? 0) + 1;
-    return counts;
-  }, {});
-  const largestIdenticalDisplayShare =
-    debugDisplayScores.length > 0
-      ? Math.max(...Object.values(displayScoreCounts)) / debugDisplayScores.length
-      : 0;
-  const tooManyIdenticalDisplayScores = largestIdenticalDisplayShare > 0.5;
-  const suspiciousRangeCompression = rawRange > 20 && displayRange < 5;
-  const insufficientMidrangeSpread = rawRange > 10 && displayRange < 15;
-  const lowRawOverstated = state.report
-    ? state.report.derivedMetrics.dailyLoadDebug.some(
-        (day) =>
-          safeNumber(day.rawScoreBeforeScaling) < 10 && safeNumber(day.finalDisplayScore) > 70,
-      )
-    : false;
+  const subtypePresentation = state.normalizedProfile
+    ? getSubtypePresentation(state.normalizedProfile.subtypeName)
+    : null;
+  const subtypeBullets = [
+    planningStyleRead?.headline,
+    recoveryIslands?.supportingLine,
+  ].filter(Boolean) as string[];
 
   return (
     <AppShell heading="Dashboard" userName={user.name}>
       <main className="space-y-8">
-        <section className="rounded-[30px] border border-white/60 bg-white/86 px-6 py-6 shadow-[0_32px_90px_-48px_rgba(15,23,42,0.45)] backdrop-blur">
-          <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted-strong)]">
-                  Dashboard
-                </p>
-                <h1 className="font-serif text-4xl leading-tight text-slate-950">
-                  Analyze My Week
-                </h1>
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
+        <section className="rounded-[28px] border border-[#e6dbd2] bg-[#f8f3ec]/95 px-5 py-4 shadow-[0_18px_48px_-36px_rgba(54,42,43,0.18)] backdrop-blur">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-3">
+              <h1 className="font-serif text-[2rem] leading-tight text-slate-950">
+                Analyze My Week
+              </h1>
+              <div className="flex flex-wrap items-center gap-2.5">
                 <StatusPill tone={statusTone}>{statusLabel}</StatusPill>
                 <StatusPill>{calendarSourceSummary.label}</StatusPill>
-                <StatusPill>Next 7 days</StatusPill>
                 {state.report ? (
-                  <StatusPill tone="success">
+                  <StatusPill>
                     Last analyzed: {formatDateTime(state.report.analyzedAt)}
                   </StatusPill>
                 ) : null}
               </div>
-              <div className="space-y-2">
-                <p className="max-w-3xl text-sm font-medium leading-7 text-slate-800">
-                  {statusCopy}
-                </p>
-                <p className="max-w-3xl text-sm leading-7 text-slate-600">{nextStepCopy}</p>
-                <p className="max-w-3xl text-sm leading-7 text-slate-600">
-                  {calendarSourceSummary.detail}
-                </p>
-              </div>
-              <p>
-              </p>
-              {googleUiStatus === "provider_access_restricted" ? (
-                <div className="rounded-[20px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
-                  Google Calendar access is currently restricted for this account. Reconnect after
-                  access is available, then run a fresh analysis.
-                </div>
-              ) : null}
-              {googleUiStatus === "missing_calendar_access" ? (
-                <div className="rounded-[20px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
-                  This account is connected without read-only calendar access. Reconnect and
-                  approve calendar access to analyze the week.
-                </div>
-              ) : null}
-              {googleUiStatus === "reconnect_needed" ? (
-                <div className="rounded-[20px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
-                  Headroom couldn&apos;t read Google Calendar with the current connection. Reconnect
-                  in Settings, then run a fresh analysis.
-                </div>
-              ) : null}
             </div>
-            <div className="flex flex-col items-start gap-3 xl:items-end">
+            <div className="flex items-start lg:items-center">
               {canAnalyze ? (
                 <form action={analyzeWeekAction}>
                   <button
@@ -673,12 +582,6 @@ export default async function DashboardPage({
                     : "Refresh profile"}
                 </Link>
               )}
-              <Link
-                href="/settings"
-                className="text-sm font-semibold text-slate-600 transition hover:text-slate-900"
-              >
-                Manage included calendars
-              </Link>
             </div>
           </div>
         </section>
@@ -742,140 +645,125 @@ export default async function DashboardPage({
             </p>
           </section>
         ) : state.report ? (
-          <section className="grid gap-6 xl:grid-cols-[1.3fr_0.9fr]">
-            <div className="space-y-6">
-              {cognitiveLoadSummary ? (
-                <section className="rounded-[30px] border border-white/55 bg-white/88 px-6 py-6 shadow-[0_28px_70px_-44px_rgba(15,23,42,0.48)] backdrop-blur">
-                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                    <div className="space-y-2">
-                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted-strong)]">
-                        Week load
-                      </p>
-                      <h2 className="font-serif text-3xl leading-tight text-slate-950">
-                        {cognitiveLoadSummary.label}
-                      </h2>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-4xl font-semibold tracking-tight text-slate-950">
-                        {cognitiveLoadSummary.score}
-                        <span className="ml-1 text-lg font-medium text-slate-500">/100</span>
-                      </p>
-                      <div className="mt-2 flex justify-end">
-                        <StatusPill tone={cognitiveLoadSummary.tone}>
-                          {cognitiveLoadSummary.label}
-                        </StatusPill>
-                      </div>
-                    </div>
+          <section className="space-y-8">
+            {cognitiveLoadSummary ? (
+              <DashboardDailyPanels
+                days={state.report.derivedMetrics.dailyLoadScores}
+                weekLoadSummary={{
+                  score: cognitiveLoadSummary.score,
+                  label: cognitiveLoadSummary.label,
+                  tone: cognitiveLoadSummary.tone,
+                  interpretation: cognitiveLoadSummary.interpretation,
+                }}
+                profilePlanningInsight={
+                  planningStyleRead?.headline ??
+                  subtypePresentation?.overviewLine ??
+                  cognitiveLoadSummary.supportingLine
+                }
+              />
+            ) : null}
+
+            <section className="grid gap-8 xl:grid-cols-[1.08fr_0.92fr] xl:items-start">
+              {subtypePresentation ? (
+                <section className="rounded-[34px] border border-[#e3d2dc] bg-[#f6eff4]/94 px-7 py-7 shadow-[0_24px_58px_-42px_rgba(78,56,72,0.16)] backdrop-blur">
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#7d6677]">
+                      Cognitive subtype
+                    </p>
+                    <h2 className="font-serif text-[2rem] leading-tight text-slate-950">
+                      {subtypePresentation.name}
+                    </h2>
                   </div>
-                  <p className="mt-4 max-w-3xl text-[15px] leading-7 text-slate-700">
-                    {cognitiveLoadSummary.interpretation}
+                  <p className="mt-5 max-w-3xl text-sm leading-7 text-slate-700">
+                    {subtypePresentation.overviewLine}
                   </p>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-[18px] border border-slate-200/80 bg-slate-50/85 px-4 py-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--muted-strong)]">
-                        Scheduled load
+                  {subtypeBullets.length > 0 ? (
+                    <div className="mt-6 space-y-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#7d6677]">
+                        What this means this week
                       </p>
-                      <p className="mt-2 text-lg font-semibold text-slate-900">
-                        {getLoadLabel(cognitiveLoadSummary.scheduledScore)}
-                      </p>
-                    </div>
-                    <div className="rounded-[18px] border border-slate-200/80 bg-slate-50/85 px-4 py-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--muted-strong)]">
-                        Latent pressure
-                      </p>
-                      <p className="mt-2 text-lg font-semibold text-slate-900">
-                        {formatMinutesAsHours(state.report.derivedMetrics.latentDemandMinutes)}
-                      </p>
-                    </div>
-                    <div className="rounded-[18px] border border-slate-200/80 bg-slate-50/85 px-4 py-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--muted-strong)]">
-                        Available margin
-                      </p>
-                      <p className="mt-2 text-lg font-semibold text-slate-900">
-                        {formatMinutesAsHours(state.report.derivedMetrics.availableMarginMinutes)}
-                      </p>
-                    </div>
-                  </div>
-                  <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">
-                    {cognitiveLoadSummary.comparisonLine}
-                  </p>
-                  <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">
-                    {cognitiveLoadSummary.supportingLine}
-                  </p>
-                  {trajectorySummary ? (
-                    <div className="mt-5 rounded-[22px] border border-slate-200/80 bg-slate-50/85 px-4 py-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted-strong)]">
-                        Week trajectory
-                      </p>
-                      <p className="mt-2 text-[15px] leading-7 text-slate-800">
-                        {trajectorySummary.headline}
-                      </p>
-                      {trajectorySummary.details.map((line) => (
-                        <p key={line} className="mt-2 text-sm leading-7 text-slate-600">
-                          {line}
-                        </p>
-                      ))}
+                      <ul className="space-y-2.5 text-sm leading-7 text-slate-700">
+                        {subtypeBullets.slice(0, 2).map((bullet) => (
+                          <li key={bullet} className="flex items-start gap-2">
+                            <span className="mt-[11px] h-1.5 w-1.5 rounded-full bg-[#a07f95]" />
+                            <span>{bullet}</span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   ) : null}
                 </section>
-              ) : null}
-
-              {planningStyleRead ? (
-                <section className="rounded-[30px] border border-white/55 bg-white/88 px-6 py-6 shadow-[0_28px_70px_-44px_rgba(15,23,42,0.48)] backdrop-blur">
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted-strong)]">
-                      {planningStyleRead.title}
-                    </p>
-                    <h2 className="font-serif text-3xl leading-tight text-slate-950">
-                      What this week means for your planning style
-                    </h2>
-                  </div>
-                  <p className="mt-4 text-[15px] leading-7 text-slate-700">
-                    {planningStyleRead.headline}
-                  </p>
-                  <p className="mt-3 text-sm leading-7 text-slate-600">
-                    {planningStyleRead.detail}
-                  </p>
-                </section>
-              ) : null}
+              ) : (
+                <div />
+              )}
 
               {composition.length > 0 ? (
-                <section className="rounded-[30px] border border-white/55 bg-white/88 px-6 py-6 shadow-[0_28px_70px_-44px_rgba(15,23,42,0.48)] backdrop-blur">
+                <section className="rounded-[32px] border border-[#e7dcc8] bg-[#f7f1e8]/92 px-7 py-7 shadow-[0_22px_52px_-42px_rgba(78,63,42,0.12)] backdrop-blur">
                   <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted-strong)]">
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#8a7457]">
                       How your week is composed
                     </p>
-                    <h2 className="font-serif text-3xl leading-tight text-slate-950">
+                    <h2 className="font-serif text-[2rem] leading-tight text-slate-950">
                       Week composition
                     </h2>
                   </div>
                   <div className="mt-6 space-y-4">
                     {composition.map((item) => (
-                      <article key={item.label} className="space-y-2">
-                        <div className="flex items-baseline justify-between gap-4">
+                      <article key={item.label} className="space-y-2.5">
+                        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-4">
                           <p className="text-sm font-semibold text-slate-900">{item.label}</p>
-                          <p className="text-sm text-slate-600">
+                          <p className="text-right text-sm tabular-nums text-slate-600">
                             {item.percent}% · {formatMinutesAsHours(item.minutes)}
                           </p>
                         </div>
                         <div className="h-2 overflow-hidden rounded-full bg-slate-100">
                           <div
                             className="h-full rounded-full bg-slate-900/70"
-                            style={{ width: `${Math.min(100, Math.max(0, item.percent))}%` }}
+                            style={{ width: `${item.percent <= 0 ? 0 : Math.min(100, item.percent)}%` }}
                           />
                         </div>
                       </article>
                     ))}
                   </div>
                   {compositionInterpretation ? (
-                    <p className="mt-6 text-[15px] leading-7 text-slate-700">
+                    <p className="mt-5 max-w-2xl text-sm leading-7 text-slate-600">
                       {compositionInterpretation}
                     </p>
                   ) : null}
                 </section>
-              ) : null}
+              ) : (
+                <div />
+              )}
+            </section>
 
-              <section className="rounded-[30px] border border-slate-900/10 bg-slate-950 px-6 py-6 text-white shadow-[0_30px_90px_-50px_rgba(15,23,42,0.7)]">
+            <section>
+              {recoveryIslands ? (
+                <section className="rounded-[28px] border border-[#d8e2d5] bg-[#f3f6f1]/90 px-6 py-5 shadow-[0_16px_36px_-34px_rgba(52,72,56,0.1)] backdrop-blur xl:ml-[8%] xl:max-w-[72rem]">
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#6d7c68]">
+                      Recovery islands
+                    </p>
+                    <h2 className="font-serif text-[1.45rem] leading-tight text-slate-950">
+                      Where support is already visible
+                    </h2>
+                  </div>
+                  <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-700">
+                    {recoveryIslands.summary}
+                  </p>
+                  <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">
+                    {recoveryIslands.supportingLine}
+                  </p>
+                  <div className="mt-4">
+                    <RecoveryIslandsVisual days={recoveryIslands.days} />
+                  </div>
+                </section>
+              ) : (
+                <div />
+              )}
+            </section>
+
+            {cognitiveLoadSummary && cognitiveLoadSummary.score > 85 ? (
+              <section className="rounded-[32px] border border-slate-900/10 bg-slate-950 px-7 py-7 text-white shadow-[0_30px_90px_-50px_rgba(15,23,42,0.7)]">
                 <div className="space-y-2">
                   <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
                     Interventions
@@ -909,52 +797,7 @@ export default async function DashboardPage({
                   ))}
                 </div>
               </section>
-            </div>
-
-            <div className="space-y-5">
-              <section className="rounded-[30px] border border-white/55 bg-white/86 px-5 py-5 shadow-[0_28px_70px_-44px_rgba(15,23,42,0.42)] backdrop-blur">
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted-strong)]">
-                    Daily load trajectory
-                  </p>
-                  <h2 className="font-serif text-2xl leading-tight text-slate-950">
-                    How capacity shifts across the week
-                  </h2>
-                </div>
-                <div className="mt-5">
-                  <DailyLoadTrajectory days={state.report.derivedMetrics.dailyLoadScores} />
-                </div>
-                {recoveryIslands ? (
-                  <div className="mt-6 border-t border-slate-200/80 pt-5">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="space-y-1">
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted-strong)]">
-                          Recovery islands
-                        </p>
-                        <p className="text-sm leading-6 text-slate-600">
-                          A visual read of where the week already holds movement, support, and breathable unplanned time.
-                        </p>
-                      </div>
-                      <Link
-                        href={openCalendarHref}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-sm font-semibold text-slate-600 transition hover:text-slate-900"
-                      >
-                        Open in Google Calendar
-                      </Link>
-                    </div>
-                    <p className="mt-4 text-sm leading-7 text-slate-700">{recoveryIslands.summary}</p>
-                    <p className="mt-2 text-sm leading-7 text-slate-600">
-                      {recoveryIslands.supportingLine}
-                    </p>
-                    <div className="mt-4">
-                      <RecoveryIslandsVisual days={recoveryIslands.days} />
-                    </div>
-                  </div>
-                ) : null}
-              </section>
-            </div>
+            ) : null}
           </section>
         ) : (
           <section className="rounded-[28px] border border-white/55 bg-white/85 p-6 shadow-[0_30px_80px_-40px_rgba(15,23,42,0.5)] backdrop-blur">
@@ -965,102 +808,6 @@ export default async function DashboardPage({
             </p>
           </section>
         )}
-
-        {showLoadDebug && state.report ? (
-          <section className="rounded-[28px] border border-amber-200 bg-amber-50/90 p-6 shadow-[0_24px_60px_-44px_rgba(15,23,42,0.35)]">
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-800">
-                Load debug
-              </p>
-              <h2 className="font-serif text-2xl leading-tight text-slate-900">
-                Temporary scoring breakdown
-              </h2>
-              <p className="text-sm leading-7 text-slate-700">
-                Debug view for the current analyzed week. This is development-only and shows the
-                raw scoring components before display scaling.
-              </p>
-            </div>
-
-            <div className="mt-5 overflow-x-auto">
-              <table className="min-w-full border-separate border-spacing-y-2 text-sm">
-                <thead>
-                  <tr className="text-left text-slate-600">
-                    <th className="pr-4">Day</th>
-                    <th className="pr-4">Demand</th>
-                    <th className="pr-4">Eval</th>
-                    <th className="pr-4">Latent</th>
-                    <th className="pr-4">Pre-exam</th>
-                    <th className="pr-4">Support</th>
-                    <th className="pr-4">Transition</th>
-                    <th className="pr-4">Fragmentation</th>
-                    <th className="pr-4">Compression</th>
-                    <th className="pr-4">Open support</th>
-                    <th className="pr-4">Carryover</th>
-                    <th className="pr-4">Raw</th>
-                    <th>Display</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {state.report.derivedMetrics.dailyLoadDebug.map((day) => (
-                    <tr key={day.date.toISOString()} className="rounded-[16px] bg-white/80 text-slate-800">
-                      <td className="rounded-l-[16px] px-3 py-2 font-semibold">{day.label}</td>
-                      <td className="px-3 py-2">{day.demandSubtotal.toFixed(2)}</td>
-                      <td className="px-3 py-2">{day.evaluativeLoadSubtotal.toFixed(2)}</td>
-                      <td className="px-3 py-2">{day.latentDemandSubtotal.toFixed(2)}</td>
-                      <td className="px-3 py-2">{day.anticipatoryExamPressure.toFixed(2)}</td>
-                      <td className="px-3 py-2">{day.supportSubtotal.toFixed(2)}</td>
-                      <td className="px-3 py-2">{day.transitionPenalty.toFixed(2)}</td>
-                      <td className="px-3 py-2">{day.fragmentationPenalty.toFixed(2)}</td>
-                      <td className="px-3 py-2">{day.compressionPenalty.toFixed(2)}</td>
-                      <td className="px-3 py-2">{day.openTimeSupport.toFixed(2)}</td>
-                      <td className="px-3 py-2">{day.accumulationCarryover.toFixed(2)}</td>
-                      <td className="px-3 py-2">{day.rawScoreBeforeScaling.toFixed(2)}</td>
-                      <td className="rounded-r-[16px] px-3 py-2 font-semibold">{day.finalDisplayScore}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
-              <div className="rounded-[20px] border border-amber-200 bg-white/80 px-4 py-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-800">
-                  Weekly breakdown
-                </p>
-                <div className="mt-3 space-y-2 text-sm leading-7 text-slate-700">
-                  <p>Scheduled raw before latent: {state.report.derivedMetrics.weeklyLoadDebug.scheduledWeeklyRawScoreBeforeLatent.toFixed(2)}</p>
-                  <p>Evaluative load contribution: {state.report.derivedMetrics.weeklyLoadDebug.evaluativeLoadContribution.toFixed(2)}</p>
-                  <p>Anticipatory exam contribution: {state.report.derivedMetrics.weeklyLoadDebug.anticipatoryExamContribution.toFixed(2)}</p>
-                  <p>Latent demand contribution: {state.report.derivedMetrics.weeklyLoadDebug.latentDemandContribution.toFixed(2)}</p>
-                  <p>Summed daily raw: {state.report.derivedMetrics.weeklyLoadDebug.summedDailyRawScore.toFixed(2)}</p>
-                  <p>Average daily raw: {state.report.derivedMetrics.weeklyLoadDebug.averageDailyRawScore.toFixed(2)}</p>
-                  <p>Pattern penalties: {state.report.derivedMetrics.weeklyLoadDebug.multiDayPatternPenalties.toFixed(2)}</p>
-                  <p>Aggregation penalty: {state.report.derivedMetrics.weeklyLoadDebug.weeklyAggregationPenalty.toFixed(2)}</p>
-                  <p>Recovery credits: {state.report.derivedMetrics.weeklyLoadDebug.recoveryCredits.toFixed(2)}</p>
-                  <p>Stabilizing credits: {state.report.derivedMetrics.weeklyLoadDebug.weeklyStabilizingCredits.toFixed(2)}</p>
-                  <p>Support factor: {state.report.derivedMetrics.weeklyLoadDebug.supportFactor.toFixed(2)}</p>
-                  <p>Weekly raw before scaling: {state.report.derivedMetrics.weeklyLoadDebug.weeklyRawScoreBeforeScaling.toFixed(2)}</p>
-                  <p>Final weekly display: {state.report.derivedMetrics.weeklyLoadDebug.finalWeeklyDisplayScore}</p>
-                </div>
-              </div>
-              <div className="rounded-[20px] border border-amber-200 bg-white/80 px-4 py-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-800">
-                  Scaling checks
-                </p>
-                <div className="mt-3 space-y-2 text-sm leading-7 text-slate-700">
-                  <p>Daily scores identical? {new Set(state.report.derivedMetrics.dailyLoadScores.map((day) => day.score)).size === 1 ? "yes" : "no"}</p>
-                  <p>More than half identical after scaling? {tooManyIdenticalDisplayScores ? "yes" : "no"}</p>
-                  <p>Raw range / display range: {rawRange.toFixed(2)} / {displayRange.toFixed(2)}</p>
-                  <p>Raw &gt; 20 with display &lt; 5? {suspiciousRangeCompression ? "yes" : "no"}</p>
-                  <p>Raw &gt; 10 with display &lt; 15? {insufficientMidrangeSpread ? "yes" : "no"}</p>
-                  <p>Any raw &lt; 10 mapping above 70? {lowRawOverstated ? "yes" : "no"}</p>
-                  <p>Any daily score at 99? {state.report.derivedMetrics.dailyLoadScores.some((day) => day.score === 99) ? "yes" : "no"}</p>
-                  <p>Weekly at 99? {state.report.derivedMetrics.overallLoadScore === 99 ? "yes" : "no"}</p>
-                </div>
-              </div>
-            </div>
-          </section>
-        ) : null}
       </main>
     </AppShell>
   );

@@ -1234,7 +1234,17 @@ describe("normalizeWeekAnalysisMetrics", () => {
       socialMinutes: Number.NaN,
       recoverySoloMinutes: Number.NaN,
       committedHoursByDay: [{ label: "Tuesday", committedHours: Number.NaN }],
-      dailyLoadScores: [{ label: "Tuesday", date: "2026-04-22T00:00:00.000Z", score: Number.NaN, committedHours: Number.NaN }],
+      dailyLoadScores: [{
+        label: "Tuesday",
+        date: "2026-04-22T00:00:00.000Z",
+        score: Number.NaN,
+        committedHours: Number.NaN,
+        operatingMode: "protect",
+        modeTitle: "Protect Day",
+        modeMeaning: "",
+        modeActions: [],
+        modeReframe: "",
+      }],
     } as any);
 
     expect(normalized.totalCommittedMinutes).toBe(0);
@@ -1258,8 +1268,28 @@ describe("normalizeWeekAnalysisMetrics", () => {
       latentDemandMinutes: 90,
       availableMarginMinutes: 240,
       dailyLoadScores: [
-        { label: "Monday", date: "2026-04-21T00:00:00.000Z", score: 31, committedHours: 4 },
-        { label: "Tuesday", date: "2026-04-22T00:00:00.000Z", score: 52, committedHours: 5 },
+        {
+          label: "Monday",
+          date: "2026-04-21T00:00:00.000Z",
+          score: 31,
+          committedHours: 4,
+          operatingMode: "protect",
+          modeTitle: "Protect Day",
+          modeMeaning: "Meaning",
+          modeActions: ["Action one", "Action two"],
+          modeReframe: "Reframe",
+        },
+        {
+          label: "Tuesday",
+          date: "2026-04-22T00:00:00.000Z",
+          score: 52,
+          committedHours: 5,
+          operatingMode: "build",
+          modeTitle: "Build Day",
+          modeMeaning: "Meaning",
+          modeActions: ["Action one", "Action two"],
+          modeReframe: "Reframe",
+        },
       ],
       dailyLoadDebug: [
         {
