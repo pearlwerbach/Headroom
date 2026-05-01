@@ -14,6 +14,7 @@ interface GoogleCalendarEvent {
   iCalUID?: string;
   status?: string;
   summary?: string;
+  description?: string;
   start?: GoogleCalendarEventDate;
   end?: GoogleCalendarEventDate;
 }
@@ -56,11 +57,43 @@ export class GoogleCalendarAccessError extends Error {
   }
 }
 
+const GOOGLE_CALENDAR_READONLY_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
+
 function splitScopes(scope?: string | null) {
   return (scope ?? "")
     .split(/\s+/)
     .map((value) => value.trim())
     .filter(Boolean);
+}
+
+function isInvalidGrantError(errorBody: unknown) {
+  if (!errorBody || typeof errorBody !== "object") {
+    return false;
+  }
+
+  const errorCode =
+    "error" in errorBody && typeof (errorBody as { error?: unknown }).error === "string"
+      ? (errorBody as { error: string }).error
+      : undefined;
+
+  return errorCode === "invalid_grant";
+}
+
+async function markGoogleCalendarReconnectNeeded({
+  accountId,
+  clearRefreshToken = false,
+}: {
+  accountId: string;
+  clearRefreshToken?: boolean;
+}) {
+  await prisma.account.update({
+    where: { id: accountId },
+    data: {
+      access_token: null,
+      expires_at: null,
+      ...(clearRefreshToken ? { refresh_token: null } : {}),
+    },
+  });
 }
 
 function classifyCalendarFetchFailure(httpStatus: number, errorBody: unknown) {
@@ -123,7 +156,20 @@ function parseGoogleEventDate(value?: GoogleCalendarEventDate) {
   return null;
 }
 
-async function refreshGoogleToken(accountId: string, refreshToken: string) {
+async function refreshGoogleToken(account: {
+  id: string;
+  userId: string;
+  refresh_token: string | null;
+}) {
+  if (!account.refresh_token) {
+    await markGoogleCalendarReconnectNeeded({ accountId: account.id });
+    throw new GoogleCalendarAccessError(
+      "refresh_failed",
+      "Google Calendar access expired. Reconnect Google Calendar.",
+      "reconnect_needed",
+    );
+  }
+
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: {
@@ -133,7 +179,7 @@ async function refreshGoogleToken(accountId: string, refreshToken: string) {
       client_id: process.env.GOOGLE_CLIENT_ID ?? "",
       client_secret: process.env.GOOGLE_CLIENT_SECRET ?? "",
       grant_type: "refresh_token",
-      refresh_token: refreshToken,
+      refresh_token: account.refresh_token,
     }),
   });
 
@@ -147,16 +193,24 @@ async function refreshGoogleToken(accountId: string, refreshToken: string) {
     }
 
     console.error("Google token refresh failed", {
-      accountId,
+      accountId: account.id,
+      userId: account.userId,
+      hasRefreshToken: Boolean(account.refresh_token),
       status: response.status,
       statusText: response.statusText,
       errorBody,
     });
 
+    const invalidGrant = isInvalidGrantError(errorBody);
+    await markGoogleCalendarReconnectNeeded({
+      accountId: account.id,
+      clearRefreshToken: invalidGrant,
+    });
+
     throw new GoogleCalendarAccessError(
       "refresh_failed",
-      "Unable to refresh Google Calendar access token.",
-      "reconnect_needed",
+      "Google Calendar access expired. Reconnect Google Calendar.",
+      invalidGrant ? "invalid_credentials" : "reconnect_needed",
     );
   }
 
@@ -167,11 +221,11 @@ async function refreshGoogleToken(accountId: string, refreshToken: string) {
   };
 
   await prisma.account.update({
-    where: { id: accountId },
+    where: { id: account.id },
     data: {
       access_token: json.access_token,
       expires_at: Math.floor(Date.now() / 1000 + json.expires_in),
-      refresh_token: json.refresh_token ?? refreshToken,
+      refresh_token: json.refresh_token ?? account.refresh_token,
     },
   });
 
@@ -187,14 +241,27 @@ export async function getGoogleAccessToken(userId: string) {
   });
 
   if (!account?.access_token) {
+    if (!account) {
+      throw new GoogleCalendarAccessError(
+        "not_connected",
+        "Google Calendar is not connected yet.",
+        "reconnect_needed",
+      );
+    }
+
+    if (account.refresh_token) {
+      return refreshGoogleToken(account);
+    }
+
+    await markGoogleCalendarReconnectNeeded({ accountId: account.id });
     throw new GoogleCalendarAccessError(
-      "not_connected",
-      "Google Calendar is not connected yet.",
+      "refresh_failed",
+      "Google Calendar access expired. Reconnect Google Calendar.",
       "reconnect_needed",
     );
   }
 
-  if (!splitScopes(account.scope).includes("https://www.googleapis.com/auth/calendar.readonly")) {
+  if (!splitScopes(account.scope).includes(GOOGLE_CALENDAR_READONLY_SCOPE)) {
     throw new GoogleCalendarAccessError(
       "fetch_failed",
       "Google Calendar access is missing from this connection.",
@@ -206,14 +273,15 @@ export async function getGoogleAccessToken(userId: string) {
 
   if (expiresSoon) {
     if (!account.refresh_token) {
+      await markGoogleCalendarReconnectNeeded({ accountId: account.id });
       throw new GoogleCalendarAccessError(
         "refresh_failed",
-        "Google Calendar needs to be reconnected.",
+        "Google Calendar access expired. Reconnect Google Calendar.",
         "reconnect_needed",
       );
     }
 
-    return refreshGoogleToken(account.id, account.refresh_token);
+    return refreshGoogleToken(account);
   }
 
   return account.access_token;
@@ -229,7 +297,7 @@ function buildAnalysisRange() {
   };
 }
 
-function normalizeTransientEvents(events: GoogleCalendarEvent[]) {
+function normalizeTransientEvents(events: GoogleCalendarEvent[], calendarId: string) {
   return events.flatMap((event) => {
     const start = parseGoogleEventDate(event.start);
     const end = parseGoogleEventDate(event.end);
@@ -245,6 +313,8 @@ function normalizeTransientEvents(events: GoogleCalendarEvent[]) {
         allDay: start.allDay,
         durationMinutes: minutesBetween(start.date, end.date),
         rawTitle: event.summary ?? "",
+        rawDescription: event.description ?? null,
+        sourceCalendarId: calendarId,
         sourceKey: event.iCalUID ?? event.id,
       } satisfies EphemeralGoogleEvent,
     ];
@@ -411,6 +481,7 @@ async function fetchEphemeralEventsForCalendar(userId: string, calendarId: strin
 
   return normalizeTransientEvents(
     (json.items ?? []).filter((event) => event.status !== "cancelled"),
+    calendarId,
   );
 }
 

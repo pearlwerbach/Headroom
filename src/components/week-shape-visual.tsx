@@ -11,6 +11,7 @@ const EVENT_TYPE_TINTS: Record<WeekEventType, string> = {
   admin: "bg-amber-200/80",
   social: "bg-rose-200/80",
   exercise: "bg-emerald-200/85",
+  rest: "bg-blue-200/85",
   meal: "bg-orange-200/85",
   appointment: "bg-violet-200/80",
   commute: "bg-stone-300/80",

@@ -97,7 +97,7 @@ export default async function SettingsPage({
         ? "Google Calendar is connected, and the current week has already been analyzed."
         : "Google Calendar is connected. Your next step is to analyze the current week."
       : googleUiStatus === "reconnect_needed"
-        ? "The Google account link is there, but calendar access needs to be refreshed before Headroom can read the week."
+        ? "Google Calendar access expired. Reconnect Google Calendar."
         : googleUiStatus === "missing_calendar_access"
           ? "This Google account is linked, but it does not currently include read-only calendar access."
         : googleUiStatus === "provider_access_restricted"

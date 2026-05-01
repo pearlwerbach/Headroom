@@ -584,6 +584,9 @@ describe("createWeekAnalysisReport", () => {
     );
     expect(new Set(representativeStudentWeek.derivedMetrics.dailyLoadScores.map((day) => day.score)).size).toBeGreaterThan(1);
     expect(representativeStudentWeek.derivedMetrics.dailyLoadScores.every((day) => day.score !== 99)).toBe(true);
+    expect(
+      representativeStudentWeek.derivedMetrics.dailyLoadScores.filter((day) => day.operatingMode === "follow_through").length,
+    ).toBeLessThanOrEqual(3);
   });
 
   it("maps days into stable operating modes based on what the day can realistically support", () => {
@@ -693,9 +696,9 @@ describe("createWeekAnalysisReport", () => {
     const thursday = report.derivedMetrics.dailyLoadScores.find((day) => day.label === "Thursday");
     const friday = report.derivedMetrics.dailyLoadScores.find((day) => day.label === "Friday");
 
-    expect(tuesday?.operatingMode).toBe("absorb");
-    expect(wednesday?.operatingMode).toBe("protect");
-    expect(thursday?.operatingMode).toBe("build");
+    expect(tuesday?.operatingMode).toBe("fragmented");
+    expect(wednesday?.operatingMode).toBe("protected_work");
+    expect(thursday?.operatingMode).toBe("open_capacity");
     expect(friday?.operatingMode).toBe("recover");
     expect(report.derivedMetrics.dailyLoadScores.every((day) => day.modeActions.length >= 2)).toBe(true);
   });
@@ -1067,6 +1070,57 @@ describe("createWeekAnalysisReport", () => {
     expect(overlappingWeek.derivedMetrics.totalCommittedMinutes).toBeLessThanOrEqual(168 * 60);
   });
 
+  it("limits composition totals to the analyzed seven-day window and category slices", () => {
+    const report = createWeekAnalysisReport(
+      [
+        {
+          startTime: new Date("2026-04-21T16:00:00.000Z"),
+          endTime: new Date("2026-04-21T18:00:00.000Z"),
+          allDay: false,
+          durationMinutes: 120,
+          eventType: "class",
+          confidence: "high",
+          classificationSource: "keyword_rule",
+        },
+        {
+          startTime: new Date("2026-04-21T16:30:00.000Z"),
+          endTime: new Date("2026-04-21T18:30:00.000Z"),
+          allDay: false,
+          durationMinutes: 120,
+          eventType: "class",
+          confidence: "high",
+          classificationSource: "keyword_rule",
+        },
+        {
+          startTime: new Date("2026-04-22T18:00:00.000Z"),
+          endTime: new Date("2026-04-22T19:00:00.000Z"),
+          allDay: false,
+          durationMinutes: 60,
+          eventType: "social",
+          confidence: "high",
+          classificationSource: "keyword_rule",
+        },
+        {
+          startTime: new Date("2026-05-02T18:00:00.000Z"),
+          endTime: new Date("2026-05-02T20:00:00.000Z"),
+          allDay: false,
+          durationMinutes: 120,
+          eventType: "class",
+          confidence: "high",
+          classificationSource: "keyword_rule",
+        },
+      ],
+      makeProfile(),
+      new Date("2026-04-20T08:00:00.000Z"),
+    );
+
+    expect(report.derivedMetrics.workClassMinutes).toBe(150);
+    expect(report.derivedMetrics.socialMinutes).toBe(60);
+    expect(report.derivedMetrics.meetingsStructuredMinutes).toBe(0);
+    expect(report.derivedMetrics.recoverySoloMinutes).toBe(0);
+    expect(report.derivedMetrics.workClassMinutes).toBeLessThanOrEqual(168 * 60);
+  });
+
   it("handles empty weeks gracefully", () => {
     const report = createWeekAnalysisReport([], makeProfile(), new Date("2026-04-20T08:00:00.000Z"));
 
@@ -1239,8 +1293,8 @@ describe("normalizeWeekAnalysisMetrics", () => {
         date: "2026-04-22T00:00:00.000Z",
         score: Number.NaN,
         committedHours: Number.NaN,
-        operatingMode: "protect",
-        modeTitle: "Protect Day",
+        operatingMode: "protected_work",
+        modeTitle: "Protected Work Day",
         modeMeaning: "",
         modeActions: [],
         modeReframe: "",
@@ -1273,8 +1327,8 @@ describe("normalizeWeekAnalysisMetrics", () => {
           date: "2026-04-21T00:00:00.000Z",
           score: 31,
           committedHours: 4,
-          operatingMode: "protect",
-          modeTitle: "Protect Day",
+          operatingMode: "protected_work",
+          modeTitle: "Protected Work Day",
           modeMeaning: "Meaning",
           modeActions: ["Action one", "Action two"],
           modeReframe: "Reframe",
@@ -1284,8 +1338,8 @@ describe("normalizeWeekAnalysisMetrics", () => {
           date: "2026-04-22T00:00:00.000Z",
           score: 52,
           committedHours: 5,
-          operatingMode: "build",
-          modeTitle: "Build Day",
+          operatingMode: "open_capacity",
+          modeTitle: "Open Capacity Day",
           modeMeaning: "Meaning",
           modeActions: ["Action one", "Action two"],
           modeReframe: "Reframe",
@@ -1364,5 +1418,92 @@ describe("buildWeekAnalysisRecordData", () => {
         recoverySoloMinutes: expect.any(Number),
       }),
     });
+  });
+});
+
+describe("canonical event aggregation", () => {
+  it("does not let all-day study markers inflate week composition totals", () => {
+    const report = createWeekAnalysisReport(
+      [
+        {
+          title: "lab 6 + 7",
+          normalizedTitle: "lab 6 7",
+          startTime: new Date("2026-04-20T00:00:00.000Z"),
+          endTime: new Date("2026-04-21T00:00:00.000Z"),
+          clippedStartTime: new Date("2026-04-20T00:00:00.000Z"),
+          clippedEndTime: new Date("2026-04-21T00:00:00.000Z"),
+          allDay: true,
+          isAllDayLike: true,
+          durationMinutes: 0,
+          rawDurationHours: 24,
+          countedDurationHours: 0,
+          eventType: "class",
+          compositionCategory: "work_class",
+          recoveryCategory: null,
+          trajectoryLoadCategory: "demand",
+          sourceCalendar: "primary",
+          includeInComposition: false,
+          includeInRecoveryIslands: false,
+          includeInTrajectory: false,
+          confidence: "high",
+          classificationSource: "keyword_rule",
+        },
+        {
+          title: "Read thru all class notes?",
+          normalizedTitle: "read thru all class notes",
+          startTime: new Date("2026-04-21T00:00:00.000Z"),
+          endTime: new Date("2026-04-22T00:00:00.000Z"),
+          clippedStartTime: new Date("2026-04-21T00:00:00.000Z"),
+          clippedEndTime: new Date("2026-04-22T00:00:00.000Z"),
+          allDay: true,
+          isAllDayLike: true,
+          durationMinutes: 0,
+          rawDurationHours: 24,
+          countedDurationHours: 0,
+          eventType: "study_work",
+          compositionCategory: "work_class",
+          recoveryCategory: null,
+          trajectoryLoadCategory: "demand",
+          sourceCalendar: "primary",
+          includeInComposition: false,
+          includeInRecoveryIslands: false,
+          includeInTrajectory: false,
+          confidence: "high",
+          classificationSource: "keyword_rule",
+        },
+        {
+          title: "Physics lecture",
+          normalizedTitle: "physics lecture",
+          startTime: new Date("2026-04-22T16:00:00.000Z"),
+          endTime: new Date("2026-04-22T18:00:00.000Z"),
+          clippedStartTime: new Date("2026-04-22T16:00:00.000Z"),
+          clippedEndTime: new Date("2026-04-22T18:00:00.000Z"),
+          allDay: false,
+          isAllDayLike: false,
+          durationMinutes: 120,
+          rawDurationHours: 2,
+          countedDurationHours: 2,
+          eventType: "class",
+          compositionCategory: "work_class",
+          recoveryCategory: null,
+          trajectoryLoadCategory: "demand",
+          sourceCalendar: "primary",
+          includeInComposition: true,
+          includeInRecoveryIslands: false,
+          includeInTrajectory: true,
+          confidence: "high",
+          classificationSource: "keyword_rule",
+        },
+      ],
+      makeProfile(),
+      new Date("2026-04-20T08:00:00.000Z"),
+    );
+
+    expect(report.derivedMetrics.workClassMinutes).toBe(120);
+    expect(
+      report.classifiedEvents
+        .filter((event) => event.isAllDayLike)
+        .every((event) => (event.countedDurationHours ?? 0) === 0),
+    ).toBe(true);
   });
 });

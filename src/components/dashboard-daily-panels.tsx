@@ -54,13 +54,15 @@ function getWeekLoadClasses(tone: WeekLoadSummaryCard["tone"]) {
 
 function getModeClasses(mode: DailyLoadScore["operatingMode"]) {
   switch (mode) {
-    case "absorb":
+    case "follow_through":
       return "border-transparent bg-[rgba(216,167,167,0.18)] text-[#866477]";
-    case "build":
+    case "open_capacity":
       return "border-transparent bg-[rgba(123,170,141,0.18)] text-[#56735f]";
     case "recover":
       return "border-transparent bg-[rgba(183,169,214,0.18)] text-[#6d5f8b]";
-    case "protect":
+    case "fragmented":
+      return "border-transparent bg-[rgba(216,167,167,0.16)] text-[#7d6170]";
+    case "protected_work":
     default:
       return "border-transparent bg-[rgba(226,180,106,0.22)] text-[#86633b]";
   }
@@ -198,7 +200,19 @@ export function DashboardDailyPanels({
                     {formatMonthDay(day.date)}
                   </p>
                 </div>
-                <span className={cn("text-[13px] font-semibold", tone.text)}>{day.score}</span>
+                <span
+                  className={cn(
+                    "inline-flex h-10 min-w-10 items-center justify-center rounded-full border text-[13px] font-semibold shadow-[0_4px_12px_rgba(0,0,0,0.04)]",
+                    tone.text,
+                    day.score >= 70
+                      ? "border-[#E7CACA] bg-[#FCF5F5]"
+                      : day.score >= 45
+                        ? "border-[#ECDDBF] bg-[#FDF8EF]"
+                        : "border-[#D7E5DC] bg-[#F4FBF6]",
+                  )}
+                >
+                  {day.score}
+                </span>
               </div>
 
               <div className="space-y-2">

@@ -27,7 +27,12 @@ import {
   resolveIncludedGoogleCalendarIds,
   type GoogleReadableCalendar,
 } from "@/lib/google-calendar";
-import { classifyWeekEventTitle } from "@/lib/week-event-classification";
+import {
+  buildCanonicalClassifiedWeekEvent,
+  resolveCompositionCategory,
+  type WeekCompositionCategory,
+} from "@/lib/week-event-classification";
+import { aggregateCategorizedDurations } from "@/lib/week-duration-aggregation";
 import { clamp, minutesBetween, startOfLocalDay } from "@/lib/utils";
 
 type WorkProfileRow = NonNullable<Awaited<ReturnType<typeof prisma.workProfile.findFirst>>>;
@@ -35,9 +40,11 @@ type WeekAnalysisRow = Awaited<ReturnType<typeof prisma.weekAnalysisReport.findU
 type WeekAnalysisHistoryRow = Awaited<ReturnType<typeof prisma.weekAnalysisHistory.findMany>>[number];
 type GoogleAccountRow = Awaited<ReturnType<typeof prisma.account.findFirst>>;
 
-type PersistedClassifiedWeekEvent = Omit<ClassifiedWeekEvent, "startTime" | "endTime"> & {
+type PersistedClassifiedWeekEvent = Omit<ClassifiedWeekEvent, "startTime" | "endTime" | "clippedStartTime" | "clippedEndTime"> & {
   startTime: string;
   endTime: string;
+  clippedStartTime?: string;
+  clippedEndTime?: string;
 };
 
 type PersistedWeekShapeDay = Omit<WeekShapeDay, "date"> & { date: string };
@@ -109,6 +116,8 @@ interface OpenBlock {
   endTime: Date;
   durationMinutes: number;
   squeezed: boolean;
+  touchesCommitment: boolean;
+  boundedByCommitments: boolean;
   focusCompatible: boolean;
   emphasizedAsFragmented: boolean;
 }
@@ -169,18 +178,31 @@ const EXTERNALLY_STRUCTURED_TYPES = new Set<WeekEventType>([
 const SUPPORTIVE_EVENT_TYPES = new Set<WeekEventType>([
   "social",
   "exercise",
+  "rest",
   "meal",
   "personal_care",
   "errand",
 ]);
+const COMPOSITION_CATEGORIES: WeekCompositionCategory[] = [
+  "work_class",
+  "meetings_structured",
+  "social",
+  "recovery_solo",
+];
+const COMPOSITION_PRIORITY: WeekCompositionCategory[] = [
+  "work_class",
+  "meetings_structured",
+  "social",
+  "recovery_solo",
+];
 const MAX_DISPLAY_LOAD_SCORE = 99;
 const LOAD_SCORE_ANCHORS = [
   { raw: 0, display: 0 },
   { raw: 2, display: 15 },
-  { raw: 5, display: 31 },
-  { raw: 10, display: 46 },
-  { raw: 20, display: 60 },
-  { raw: 40, display: 78 },
+  { raw: 5, display: 34 },
+  { raw: 10, display: 52 },
+  { raw: 20, display: 67 },
+  { raw: 40, display: 82 },
   { raw: 60, display: 88 },
   { raw: 70, display: 92 },
   { raw: 90, display: 97 },
@@ -411,40 +433,128 @@ function getEventHours(day: DayAnalysis, predicate: (eventType: WeekEventType) =
     .reduce((sum, event) => sum + event.durationMinutes, 0) / 60;
 }
 
+function getSymbolicTrajectoryHours(event: ClassifiedWeekEvent) {
+  if (
+    !event.isAllDayLike ||
+    !(event.includeInTrajectory ?? false) ||
+    (event.countedDurationHours ?? event.durationMinutes / 60) > 0
+  ) {
+    return 0;
+  }
+
+  switch (event.eventType) {
+    case "evaluative":
+      return 1.9;
+    case "class":
+      return 1.25;
+    case "study_work":
+      return 1.1;
+    case "deep_work":
+      return 1.15;
+    case "admin":
+      return 0.75;
+    default:
+      return 0;
+  }
+}
+
+function getDaySymbolicTrajectorySummary(date: Date, classifiedEvents: ClassifiedWeekEvent[]) {
+  const dayStart = startOfLocalDay(date);
+  const dayEnd = addDays(dayStart, 1);
+
+  return classifiedEvents.reduce(
+    (summary, event) => {
+      if (
+        !(event.includeInTrajectory ?? false) ||
+        (event.clippedEndTime ?? event.endTime) <= dayStart ||
+        (event.clippedStartTime ?? event.startTime) >= dayEnd
+      ) {
+        return summary;
+      }
+
+      const symbolicHours = getSymbolicTrajectoryHours(event);
+
+      if (symbolicHours <= 0) {
+        return summary;
+      }
+
+      if (event.eventType === "evaluative") {
+        summary.evaluativeHours += symbolicHours;
+      } else if (event.eventType === "study_work") {
+        summary.selfDirectedHours += symbolicHours;
+      } else if (event.eventType === "class") {
+        summary.classHours += symbolicHours;
+        summary.primaryDemandHours += symbolicHours;
+      } else if (event.eventType === "deep_work") {
+        summary.primaryDemandHours += symbolicHours;
+      } else if (event.eventType === "admin") {
+        summary.structuredHours += symbolicHours;
+      }
+
+      summary.totalSymbolicHours += symbolicHours;
+      return summary;
+    },
+    {
+      primaryDemandHours: 0,
+      classHours: 0,
+      selfDirectedHours: 0,
+      structuredHours: 0,
+      evaluativeHours: 0,
+      totalSymbolicHours: 0,
+    },
+  );
+}
+
 function getOpenSupportSummary(day: DayAnalysis) {
-  return day.openBlocks.reduce(
+  const usableBlocks = day.openBlocks
+    .map((block) => {
+      const planningStart = new Date(block.startTime);
+      planningStart.setHours(8, 0, 0, 0);
+      const planningEnd = new Date(block.startTime);
+      planningEnd.setHours(22, 0, 0, 0);
+      const boundedStart = block.startTime < planningStart ? planningStart : block.startTime;
+      const boundedEnd = block.endTime > planningEnd ? planningEnd : block.endTime;
+      const durationMinutes = boundedEnd > boundedStart ? minutesBetween(boundedStart, boundedEnd) : 0;
+
+      if (durationMinutes <= 0) {
+        return null;
+      }
+
+      return {
+        ...block,
+        startTime: boundedStart,
+        endTime: boundedEnd,
+        durationMinutes,
+      };
+    })
+    .filter((block): block is OpenBlock => block !== null);
+
+  const unplannedBufferCandidate = [...usableBlocks]
+    .filter((block) => block.touchesCommitment && block.durationMinutes >= 60 && block.durationMinutes <= 150)
+    .sort((left, right) => {
+      if (left.boundedByCommitments !== right.boundedByCommitments) {
+        return Number(right.boundedByCommitments) - Number(left.boundedByCommitments);
+      }
+
+      return Math.abs(90 - left.durationMinutes) - Math.abs(90 - right.durationMinutes);
+    })[0];
+
+  return usableBlocks.reduce(
     (summary, block) => {
-      const durationHours = block.durationMinutes / 60;
-      const isLate = block.startTime.getHours() >= 20 || block.endTime.getHours() >= 22;
-      const lateDiscount = isLate ? 0.45 : block.startTime.getHours() >= 18 ? 0.7 : 1;
-      const ambientSupport =
-        !block.squeezed && block.durationMinutes >= 30
-          ? durationHours * 0.06 * lateDiscount
-          : block.squeezed && block.durationMinutes >= 20
-            ? durationHours * 0.015
-            : 0;
-
-      if (!block.squeezed && block.durationMinutes >= 45) {
-        summary.bufferedSupport += durationHours * 0.08 * lateDiscount;
-      } else if (block.squeezed && block.durationMinutes >= 45) {
-        summary.squeezeRelief += durationHours * 0.02;
-      }
-
-      if (!block.squeezed && block.durationMinutes >= 100) {
-        summary.explicitRecovery += Math.min(1.1, durationHours * 0.18 * lateDiscount);
-      }
-
-      if (!block.squeezed && block.durationMinutes >= 75) {
-        summary.strongSupportBlocks += 1;
-      }
-
-      if (!block.squeezed) {
-        summary.availableMarginMinutes += block.durationMinutes * (block.durationMinutes >= 45 ? 0.72 : 0.42);
+      if (block.focusCompatible) {
+        summary.availableMarginMinutes += block.durationMinutes * (block.boundedByCommitments ? 0.24 : 0.18);
+      } else if (!block.squeezed && block.durationMinutes >= 45) {
+        summary.availableMarginMinutes += block.durationMinutes * 0.06;
       } else {
-        summary.availableMarginMinutes += block.durationMinutes * 0.16;
+        summary.availableMarginMinutes += block.durationMinutes * 0.02;
       }
 
-      summary.ambientSupport += ambientSupport;
+      if (unplannedBufferCandidate && block.startTime.getTime() === unplannedBufferCandidate.startTime.getTime() && block.endTime.getTime() === unplannedBufferCandidate.endTime.getTime()) {
+        const countedBufferHours = Math.min(60, block.durationMinutes) / 60;
+        summary.bufferedSupport += countedBufferHours * 0.08;
+        summary.squeezeRelief += block.squeezed ? countedBufferHours * 0.02 : countedBufferHours * 0.01;
+        summary.strongSupportBlocks += block.boundedByCommitments ? 1 : 0;
+      }
 
       return summary;
     },
@@ -467,37 +577,71 @@ function getDailyOperatingMode(
   profile: CognitiveProfileSnapshot,
 ): DailyLoadScore["operatingMode"] {
   const desiredBlockMinutes = getDesiredBlockMinutes(profile);
-  const highStructure = day.structuredEventCount >= 3 || day.eventCount >= 4;
-  const highTransitions = day.transitionBurden >= 2.5 || day.switchCount + day.categorySwitchCount >= 4;
-  const lowRunway =
-    day.protectedBlockCount === 0 ||
-    day.longestGapMinutes < desiredBlockMinutes ||
+  const largestContiguousBlock = day.longestGapMinutes;
+  const transitionCount = day.switchCount + day.categorySwitchCount;
+  const highFragmentation =
     day.fragmentedWindowCount >= 2 ||
-    availableMarginMinutes < 110;
+    (day.fragmentedWindowCount >= 1 && largestContiguousBlock < Math.max(95, desiredBlockMinutes)) ||
+    (transitionCount >= 4 && largestContiguousBlock < desiredBlockMinutes + 10);
   const strongRunway =
-    day.protectedBlockCount >= 2 || availableMarginMinutes >= 210 || day.longestGapMinutes >= desiredBlockMinutes + 35;
-  const moderateRunway =
-    day.protectedBlockCount >= 1 || availableMarginMinutes >= 120 || day.longestGapMinutes >= desiredBlockMinutes;
-  const visibleRecovery =
+    largestContiguousBlock >= 120 ||
+    day.protectedBlockCount >= 2 ||
+    availableMarginMinutes >= 180;
+  const usableRunway =
+    day.protectedBlockCount >= 1 ||
+    largestContiguousBlock >= 90 ||
+    availableMarginMinutes >= 110;
+  const highRecoveryPresence =
+    day.explicitRecoveryMinutes >= 75 ||
+    day.supportMinutes >= 120 ||
+    (day.exerciseCount > 0 && day.supportMinutes >= 75);
+  const moderateRecoveryPresence =
     day.explicitRecoveryMinutes >= 45 ||
-    day.supportMinutes >= 90 ||
-    (availableMarginMinutes >= 240 && carryoverIn >= 1);
-  const lowDemand = score <= 22 && day.committedMinutes <= 180;
-  const highCarryover = carryoverIn >= 1.8 || (carryoverIn >= 1.2 && score <= 36);
+    day.supportMinutes >= 90;
+  const lowLoad = score <= 40;
+  const moderateLoad = score <= 55;
+  const highCarryover = carryoverIn >= 1.7 || (carryoverIn >= 1.2 && score <= 44);
 
-  if ((highCarryover && availableMarginMinutes >= 120) || (lowDemand && visibleRecovery && day.structuredEventCount <= 2)) {
+  if (
+    (highRecoveryPresence && score <= 45) ||
+    (moderateRecoveryPresence && lowLoad && transitionCount <= 3) ||
+    (highCarryover && moderateRecoveryPresence && availableMarginMinutes >= 90)
+  ) {
     return "recover";
   }
 
-  if ((highStructure && highTransitions && lowRunway) || (score >= 65 && day.structuredEventCount >= 3 && !moderateRunway)) {
-    return "absorb";
+  if (
+    score >= 60 &&
+    highFragmentation &&
+    largestContiguousBlock < Math.max(110, desiredBlockMinutes + 10)
+  ) {
+    return "fragmented";
   }
 
-  if (score <= 58 && strongRunway && day.structuredEventCount <= 1 && day.eventCount <= 2 && carryoverIn < 1.4) {
-    return "build";
+  if (
+    score <= 38 &&
+    strongRunway &&
+    largestContiguousBlock >= 120 &&
+    day.fragmentedWindowCount === 0 &&
+    transitionCount <= 2
+  ) {
+    return "open_capacity";
   }
 
-  return "protect";
+  if (
+    score <= 70 &&
+    usableRunway &&
+    largestContiguousBlock >= Math.max(90, desiredBlockMinutes) &&
+    !highFragmentation
+  ) {
+    return "protected_work";
+  }
+
+  if (highFragmentation && score >= 42) {
+    return "fragmented";
+  }
+
+  return "follow_through";
 }
 
 function getDailyOperatingModeCopy(
@@ -505,39 +649,39 @@ function getDailyOperatingModeCopy(
   profile: CognitiveProfileSnapshot,
 ) {
   const protectedWindowLabel = profile.fragmentationCost >= 4 || profile.transitionCost >= 4
-    ? "one clean runway"
+    ? "one protected runway"
     : "one real work block";
 
   switch (mode) {
-    case "absorb":
+    case "open_capacity":
       return {
-        title: "Absorb Day",
+        title: "Open Capacity Day",
         meaning:
-          "The day is best used to move through commitments and follow-through, not to force deep work between transitions.",
+          "Use this day to make real progress and prioritize your hardest work.",
         actions: [
-          "Let classes, meetings, and logistics be the main job of the day.",
-          "Use shorter gaps for admin, review, setup, or simple follow-through.",
-          "Do not ask this day to hold your most open-ended work.",
+          "Place your hardest or most cognitively demanding work in the clearest block.",
+          "Keep admin and follow-through outside the best runway.",
+          "Use the day early, before later pressure makes the week feel tighter.",
         ],
-        reframe: "A good Absorb Day is one that carries the schedule cleanly without making you fight it.",
+        reframe: "If you use this kind of day well, the rest of the week usually gets easier to carry.",
       };
-    case "build":
+    case "follow_through":
       return {
-        title: "Build Day",
+        title: "Follow-Through Day",
         meaning:
-          "This day has enough continuity to support deeper work, studying, and open-ended thinking.",
+          "Move through what is scheduled and do not force depth between transitions.",
         actions: [
-          "Place your most demanding work in the clearest continuous window.",
-          "Keep lighter admin and messages at the edges instead of inside the best block.",
-          "Start within the usable window you already have rather than waiting for a more perfect day.",
+          "Let commitments, follow-through, and lighter work be the main job of the day.",
+          "Use smaller openings for review, admin, setup, or completion.",
+          "Protect momentum without expecting a deep-work day from a scattered schedule.",
         ],
-        reframe: "Use the day to build momentum while the schedule can still hold it.",
+        reframe: "A good Follow-Through Day keeps the week moving without making you fight the structure.",
       };
     case "recover":
       return {
         title: "Recover Day",
         meaning:
-          "Capacity matters more than visible openness here, so recovery and lighter effort are fully valid.",
+          "Let the system reset - recovery today supports the rest of the week.",
         actions: [
           "Let rest, exercise, care, or quieter catch-up take priority.",
           "If work needs to happen, keep it concrete, bounded, and lower-stakes.",
@@ -545,12 +689,24 @@ function getDailyOperatingModeCopy(
         ],
         reframe: "Protecting capacity on a Recover Day is part of the plan, not a detour from it.",
       };
-    case "protect":
+    case "fragmented":
+      return {
+        title: "Fragmented Day",
+        meaning:
+          "Stay modular - deep work will be harder than it looks.",
+        actions: [
+          "Keep tasks small, modular, and easy to restart between commitments.",
+          "Do not spend your best energy trying to force depth into broken openings.",
+          "Use the day for review, prep, admin, and bounded follow-through instead.",
+        ],
+        reframe: "This is not a depth-friendly day, even if the calendar looks more open than it feels.",
+      };
+    case "protected_work":
     default:
       return {
-        title: "Protect Day",
+        title: "Protected Work Day",
         meaning:
-          "The day can hold one meaningful priority, but it will help to choose and guard it deliberately.",
+          "Protect one real work block - that is the win.",
         actions: [
           `Choose ${protectedWindowLabel} and decide in advance what belongs there.`,
           "Let the rest of the day absorb lighter tasks, follow-through, and transitions.",
@@ -559,6 +715,74 @@ function getDailyOperatingModeCopy(
         reframe: "The goal is not to do everything today, but to keep one part of the day genuinely usable.",
       };
   }
+}
+
+function rebalanceWeeklyOperatingModes(
+  modes: DailyLoadScore["operatingMode"][],
+  dayAnalyses: DayAnalysis[],
+  dailyScores: number[],
+  availableMargins: number[],
+  profile: CognitiveProfileSnapshot,
+) {
+  const nextModes = [...modes];
+  const followThroughIndexes = nextModes
+    .map((mode, index) => ({ mode, index }))
+    .filter((entry) => entry.mode === "follow_through")
+    .map((entry) => entry.index);
+
+  if (followThroughIndexes.length <= 3) {
+    return nextModes;
+  }
+
+  const desiredBlockMinutes = getDesiredBlockMinutes(profile);
+  const ranked = followThroughIndexes
+    .map((index) => {
+      const day = dayAnalyses[index]!;
+      return {
+        index,
+        day,
+        score: dailyScores[index] ?? 0,
+        availableMarginMinutes: availableMargins[index] ?? 0,
+      };
+    })
+    .sort((left, right) => {
+      const leftRunway = Math.max(left.day.longestGapMinutes, left.availableMarginMinutes);
+      const rightRunway = Math.max(right.day.longestGapMinutes, right.availableMarginMinutes);
+      return rightRunway - leftRunway;
+    });
+
+  for (const candidate of ranked) {
+    const remainingFollowThrough = nextModes.filter((mode) => mode === "follow_through").length;
+    if (remainingFollowThrough <= 3) {
+      break;
+    }
+
+    const { day, score, availableMarginMinutes, index } = candidate;
+    const transitionCount = day.switchCount + day.categorySwitchCount;
+    const highRecoveryPresence = day.explicitRecoveryMinutes >= 75 || day.supportMinutes >= 120;
+
+    if (
+      score <= 40 &&
+      (day.longestGapMinutes >= 120 || availableMarginMinutes >= 180) &&
+      day.fragmentedWindowCount === 0
+    ) {
+      nextModes[index] = "open_capacity";
+    } else if (
+      day.fragmentedWindowCount >= 1 &&
+      (day.longestGapMinutes < Math.max(90, desiredBlockMinutes) || transitionCount >= 4)
+    ) {
+      nextModes[index] = "fragmented";
+    } else if (
+      day.longestGapMinutes >= Math.max(90, desiredBlockMinutes) ||
+      day.protectedBlockCount >= 1
+    ) {
+      nextModes[index] = "protected_work";
+    } else if (highRecoveryPresence && score <= 50) {
+      nextModes[index] = "recover";
+    }
+  }
+
+  return nextModes;
 }
 
 function getCompressionCount(day: DayAnalysis) {
@@ -634,21 +858,48 @@ function mergeIntervals(events: ClassifiedWeekEvent[]) {
   return merged;
 }
 
+function getMergedMinutesForEvents(events: ClassifiedWeekEvent[]) {
+  return mergeIntervals(events).reduce((sum, interval) => sum + interval.durationMinutes, 0);
+}
+
+function getMergedMinutesForDayAnalyses(
+  dayAnalyses: DayAnalysis[],
+  matcher: (event: ClassifiedWeekEvent) => boolean,
+) {
+  return dayAnalyses.reduce(
+    (sum, day) => sum + getMergedMinutesForEvents(day.events.filter(matcher)),
+    0,
+  );
+}
+
+function getAnalyzedRange(dayAnalyses: DayAnalysis[]) {
+  const start = dayAnalyses[0] ? startOfLocalDay(dayAnalyses[0].date) : new Date(0);
+  const end = dayAnalyses[dayAnalyses.length - 1]
+    ? addDays(startOfLocalDay(dayAnalyses[dayAnalyses.length - 1]!.date), 1)
+    : start;
+
+  return { start, end };
+}
+
 function clipEventsToDay(date: Date, events: ClassifiedWeekEvent[]) {
   const wake = buildDayBoundary(date, DEFAULT_WAKE_HOUR);
   const sleep = buildDayBoundary(date, DEFAULT_SLEEP_HOUR);
 
   return events
-    .map((event) => ({
-      ...event,
-      startTime: event.startTime < wake ? wake : event.startTime,
-      endTime: event.endTime > sleep ? sleep : event.endTime,
-      durationMinutes: minutesBetween(
-        event.startTime < wake ? wake : event.startTime,
-        event.endTime > sleep ? sleep : event.endTime,
-      ),
-    }))
-    .filter((event) => event.endTime > wake && event.startTime < sleep)
+    .map((event) => {
+      const clippedStart = event.clippedStartTime ?? event.startTime;
+      const clippedEnd = event.clippedEndTime ?? event.endTime;
+      const startTime = clippedStart < wake ? wake : clippedStart;
+      const endTime = clippedEnd > sleep ? sleep : clippedEnd;
+
+      return {
+        ...event,
+        startTime,
+        endTime,
+        durationMinutes: minutesBetween(startTime, endTime),
+      };
+    })
+    .filter((event) => event.endTime > wake && event.startTime < sleep && event.durationMinutes > 0)
     .sort((left, right) => left.startTime.getTime() - right.startTime.getTime());
 }
 
@@ -679,6 +930,8 @@ function buildOpenBlocks(
       const nextStructured = nextEvents.at(0)
         ? EXTERNALLY_STRUCTURED_TYPES.has(nextEvents.at(0)!.eventType)
         : false;
+      const touchesCommitment = previousEvents.length > 0 || nextEvents.length > 0;
+      const boundedByCommitments = previousEvents.length > 0 && nextEvents.length > 0;
       const squeezed = previousStructured || nextStructured;
       const requiredMinutes = desiredBlockMinutes + (squeezed ? runwayMinutes : 0);
       const focusCompatible = durationMinutes >= requiredMinutes;
@@ -689,6 +942,8 @@ function buildOpenBlocks(
         endTime: end,
         durationMinutes,
         squeezed,
+        touchesCommitment,
+        boundedByCommitments,
         focusCompatible,
         emphasizedAsFragmented,
       });
@@ -812,6 +1067,7 @@ function analyzeDay(
       .reduce((sum, event) => sum + event.durationMinutes, 0),
     explicitRecoveryMinutes: dayEvents
       .filter((event) =>
+        event.eventType === "rest" ||
         event.eventType === "exercise" ||
         event.eventType === "meal" ||
         event.eventType === "personal_care",
@@ -829,6 +1085,8 @@ function serializeClassifiedEvents(events: ClassifiedWeekEvent[]) {
     ...event,
     startTime: event.startTime.toISOString(),
     endTime: event.endTime.toISOString(),
+    clippedStartTime: (event.clippedStartTime ?? event.startTime).toISOString(),
+    clippedEndTime: (event.clippedEndTime ?? event.endTime).toISOString(),
   })) satisfies PersistedClassifiedWeekEvent[];
 }
 
@@ -863,9 +1121,35 @@ function parseClassifiedEvents(value: Prisma.JsonValue | null | undefined) {
     const event = entry as PersistedClassifiedWeekEvent;
 
     return [{
-      ...event,
+      title: typeof event.title === "string" ? event.title : "",
+      normalizedTitle: typeof event.normalizedTitle === "string" ? event.normalizedTitle : "",
       startTime: new Date(event.startTime),
       endTime: new Date(event.endTime),
+      clippedStartTime: new Date(event.clippedStartTime ?? event.startTime),
+      clippedEndTime: new Date(event.clippedEndTime ?? event.endTime),
+      allDay: Boolean(event.allDay),
+      isAllDayLike: Boolean(event.isAllDayLike ?? event.allDay),
+      durationMinutes: finiteNumber(event.durationMinutes),
+      rawDurationHours: finiteNumber(event.rawDurationHours),
+      countedDurationHours: finiteNumber(
+        event.countedDurationHours ?? (finiteNumber(event.durationMinutes) / 60),
+      ),
+      eventType: event.eventType,
+      compositionCategory: event.compositionCategory ?? null,
+      recoveryCategory: event.recoveryCategory ?? null,
+      trajectoryLoadCategory: event.trajectoryLoadCategory ?? "neutral",
+      matchedRule: typeof event.matchedRule === "string" ? event.matchedRule : undefined,
+      sourceCalendar: typeof event.sourceCalendar === "string"
+        ? event.sourceCalendar
+        : typeof event.sourceCalendarId === "string"
+          ? event.sourceCalendarId
+          : "unknown",
+      sourceCalendarId: typeof event.sourceCalendarId === "string" ? event.sourceCalendarId : undefined,
+      includeInComposition: Boolean(event.includeInComposition ?? finiteNumber(event.durationMinutes) > 0),
+      includeInRecoveryIslands: Boolean(event.includeInRecoveryIslands ?? false),
+      includeInTrajectory: Boolean(event.includeInTrajectory ?? finiteNumber(event.durationMinutes) > 0),
+      confidence: event.confidence,
+      classificationSource: event.classificationSource,
     }] satisfies ClassifiedWeekEvent[];
   });
 }
@@ -901,13 +1185,14 @@ export function normalizeWeekAnalysisMetrics(
           score: normalizeDisplayLoadScore(day?.score),
           committedHours: finiteNumber(day?.committedHours),
           operatingMode:
-            day?.operatingMode === "absorb" ||
-            day?.operatingMode === "protect" ||
-            day?.operatingMode === "build" ||
+            day?.operatingMode === "open_capacity" ||
+            day?.operatingMode === "follow_through" ||
+            day?.operatingMode === "protected_work" ||
+            day?.operatingMode === "fragmented" ||
             day?.operatingMode === "recover"
               ? day.operatingMode
-              : "protect",
-          modeTitle: typeof day?.modeTitle === "string" ? day.modeTitle : "Protect Day",
+              : "protected_work",
+          modeTitle: typeof day?.modeTitle === "string" ? day.modeTitle : "Protected Work Day",
           modeMeaning: typeof day?.modeMeaning === "string" ? day.modeMeaning : "",
           modeActions: Array.isArray(day?.modeActions)
             ? day.modeActions.filter((item): item is string => typeof item === "string")
@@ -1018,6 +1303,7 @@ function buildDerivedMetrics(
   classifiedEvents: ClassifiedWeekEvent[],
   profile: CognitiveProfileSnapshot,
 ) {
+  const analyzedRange = getAnalyzedRange(dayAnalyses);
   const gapLengths = dayAnalyses.flatMap((day) =>
     day.openBlocks.map((block) => block.durationMinutes).filter((minutes) => minutes > 0),
   );
@@ -1045,40 +1331,33 @@ function buildDerivedMetrics(
     (sum, day) => sum + day.openBlocks.reduce((daySum, block) => daySum + block.durationMinutes, 0),
     0,
   );
-  const workClassMinutes = classifiedEvents
-    .filter((event) =>
-      event.eventType === "evaluative" ||
-      event.eventType === "class" ||
-      event.eventType === "study_work" ||
-      event.eventType === "deep_work" ||
-      event.eventType === "admin"
-    )
-    .reduce((sum, event) => sum + event.durationMinutes, 0);
-  const meetingsStructuredMinutes = classifiedEvents
-    .filter((event) =>
-      event.eventType === "work_meeting" ||
-      event.eventType === "appointment" ||
-      event.eventType === "commute" ||
-      event.eventType === "travel",
-    )
-    .reduce((sum, event) => sum + event.durationMinutes, 0);
-  const socialMinutes = classifiedEvents
-    .filter((event) => event.eventType === "social")
-    .reduce((sum, event) => sum + event.durationMinutes, 0);
-  const recoverySoloMinutes = classifiedEvents
-    .filter((event) =>
-      event.eventType === "exercise" ||
-      event.eventType === "meal" ||
-      event.eventType === "personal_care" ||
-      event.eventType === "errand",
-    )
-    .reduce((sum, event) => sum + event.durationMinutes, 0);
+  const compositionAggregation = aggregateCategorizedDurations(
+    classifiedEvents
+      .filter((event) => (event.includeInComposition ?? true) && (event.compositionCategory ?? resolveCompositionCategory(event.eventType)))
+      .map((event) => ({
+        title: event.title,
+        startTime: event.clippedStartTime ?? event.startTime,
+        endTime: event.clippedEndTime ?? event.endTime,
+        sourceCalendarId: event.sourceCalendar,
+        resolvedCategory: event.compositionCategory ?? resolveCompositionCategory(event.eventType),
+      })),
+    {
+      categories: COMPOSITION_CATEGORIES,
+      priority: COMPOSITION_PRIORITY,
+      rangeStart: analyzedRange.start,
+      rangeEnd: analyzedRange.end,
+    },
+  );
+  const workClassMinutes = Math.round(compositionAggregation.totals.work_class);
+  const meetingsStructuredMinutes = Math.round(compositionAggregation.totals.meetings_structured);
+  const socialMinutes = Math.round(compositionAggregation.totals.social);
+  const recoverySoloMinutes = Math.round(compositionAggregation.totals.recovery_solo);
   const supportDays = dayAnalyses.filter((day) => day.supportMinutes >= 60 || day.explicitRecoveryMinutes >= 45).length;
   const supportTypeCount = [
     socialMinutes > 0,
-    classifiedEvents.some((event) => event.eventType === "exercise"),
-    classifiedEvents.some((event) => event.eventType === "meal"),
-    classifiedEvents.some((event) => event.eventType === "personal_care"),
+    classifiedEvents.some((event) => event.recoveryCategory === "exercise"),
+    classifiedEvents.some((event) => event.recoveryCategory === "care"),
+    classifiedEvents.some((event) => event.recoveryCategory === "rest"),
   ].filter(Boolean).length;
   const meaningfulRecoveryDays = dayAnalyses.filter((day) => {
     const openSupportSummary = getOpenSupportSummary(day);
@@ -1093,17 +1372,26 @@ function buildDerivedMetrics(
   const weeklyClassHours =
     classifiedEvents
       .filter((event) => event.eventType === "class")
-      .reduce((sum, event) => sum + event.durationMinutes, 0) / 60;
+      .reduce(
+        (sum, event) => sum + (event.countedDurationHours ?? event.durationMinutes / 60) + getSymbolicTrajectoryHours(event),
+        0,
+      );
   const weeklyStudyWorkHours =
     classifiedEvents
       .filter((event) => event.eventType === "study_work")
-      .reduce((sum, event) => sum + event.durationMinutes, 0) / 60;
+      .reduce(
+        (sum, event) => sum + (event.countedDurationHours ?? event.durationMinutes / 60) + getSymbolicTrajectoryHours(event),
+        0,
+      );
   const weeklyClassCount = classifiedEvents.filter((event) => event.eventType === "class").length;
   const evaluativeEvents = classifiedEvents.filter((event) => event.eventType === "evaluative");
-  const weeklyEvaluativeHours = evaluativeEvents.reduce((sum, event) => sum + event.durationMinutes, 0) / 60;
+  const weeklyEvaluativeHours = evaluativeEvents.reduce(
+    (sum, event) => sum + (event.countedDurationHours ?? event.durationMinutes / 60) + getSymbolicTrajectoryHours(event),
+    0,
+  );
   const evaluativeEventDays = evaluativeEvents.map((event) => ({
-    dayStart: startOfLocalDay(event.startTime),
-    hours: event.durationMinutes / 60,
+    dayStart: startOfLocalDay(event.clippedStartTime ?? event.startTime),
+    hours: event.countedDurationHours ?? event.durationMinutes / 60,
   }));
   const academicPressureAnchor = clamp(
     weeklyClassHours * 0.3 +
@@ -1136,15 +1424,16 @@ function buildDerivedMetrics(
   const dailyRawSignals = dayAnalyses.map((day, index) => {
     const carryoverIn = carryover;
     const openSupportSummary = getOpenSupportSummary(day);
+    const symbolicTrajectory = getDaySymbolicTrajectorySummary(day.date, classifiedEvents);
     const compressionCount = getCompressionCount(day);
     const primaryDemandHours = getEventHours(
       day,
       (eventType) => eventType === "class" || eventType === "deep_work",
-    );
-    const evaluativeHours = getEventHours(day, isEvaluativeType);
-    const selfDirectedWorkHours = getEventHours(day, isSelfDirectedWorkType);
-    const structuredDemandHours = getEventHours(day, isStructuredObligationType);
-    const classHours = getEventHours(day, (eventType) => eventType === "class");
+    ) + symbolicTrajectory.primaryDemandHours;
+    const evaluativeHours = getEventHours(day, isEvaluativeType) + symbolicTrajectory.evaluativeHours;
+    const selfDirectedWorkHours = getEventHours(day, isSelfDirectedWorkType) + symbolicTrajectory.selfDirectedHours;
+    const structuredDemandHours = getEventHours(day, isStructuredObligationType) + symbolicTrajectory.structuredHours;
+    const classHours = getEventHours(day, (eventType) => eventType === "class") + symbolicTrajectory.classHours;
     const socialHours = day.socialMinutes / 60;
     const supportiveSocialShare =
       profile.socialRecoveryValue >= 4
@@ -1163,40 +1452,46 @@ function buildDerivedMetrics(
       eventType === "meal" || eventType === "personal_care" || eventType === "errand",
     );
     const evaluativeLoad = evaluativeHours * 1.45 + (evaluativeHours > 0 ? 1.35 : 0);
+    const weekendDemandPenalty =
+      (day.label === "Saturday" || day.label === "Sunday") &&
+      (primaryDemandHours + selfDirectedWorkHours + structuredDemandHours + evaluativeHours >= 1.25)
+        ? 0.7
+        : 0;
     const demand =
-      primaryDemandHours * 1.0 +
-      selfDirectedWorkHours * 0.62 +
-      structuredDemandHours * 0.72 +
-      highDemandSocialHours * 0.35 +
-      evaluativeLoad;
+      primaryDemandHours * 1.08 +
+      selfDirectedWorkHours * 0.78 +
+      structuredDemandHours * 0.84 +
+      highDemandSocialHours * 0.4 +
+      evaluativeLoad +
+      weekendDemandPenalty;
     const support =
-      exerciseHours * 0.88 +
-      careHours * 0.35 +
-      openSupportSummary.explicitRecovery * 1.05 +
-      lowDemandSocialHours * 0.35 +
-      openSupportSummary.ambientSupport +
+      exerciseHours * 0.8 +
+      careHours * 0.24 +
+      openSupportSummary.explicitRecovery * 0.5 +
+      lowDemandSocialHours * 0.28 +
+      openSupportSummary.ambientSupport * 0.15 +
       openSupportSummary.bufferedSupport +
       openSupportSummary.squeezeRelief;
-    const transitionPenalty = Math.min(4.9, day.transitionBurden) * (0.64 + profile.transitionCost * 0.1);
+    const transitionPenalty = Math.min(5.4, day.transitionBurden) * (0.76 + profile.transitionCost * 0.11);
     const fragmentationPenalty =
-      day.fragmentedWindowCount * (0.72 + profile.fragmentationCost * 0.12) +
+      day.fragmentedWindowCount * (0.86 + profile.fragmentationCost * 0.12) +
       (
         day.longestGapMinutes < getDesiredBlockMinutes(profile)
-          ? 1.45 +
+          ? 1.7 +
             Math.min(
-              2.9,
+              3.15,
               (getDesiredBlockMinutes(profile) - Math.max(0, day.longestGapMinutes)) / 30,
             )
           : 0
       );
-    const compressionPenalty = compressionCount * (0.78 + profile.transitionCost * 0.09);
+    const compressionPenalty = compressionCount * (0.92 + profile.transitionCost * 0.1);
     const friction = transitionPenalty + fragmentationPenalty + compressionPenalty;
     const stabilizingCredit =
-      (openSupportSummary.strongSupportBlocks > 0 ? 1.75 : 0) +
-      (day.exerciseCount > 0 ? (profile.exerciseRecoveryValue >= 4 ? 2.1 : 1.2) : 0) +
-      (lowDemandSocialHours >= 1 ? 1.0 : 0) +
-      (day.supportMinutes >= 120 ? 1.0 : 0) +
-      (careHours >= 1 ? 0.35 : 0);
+      (openSupportSummary.strongSupportBlocks > 0 ? 0.12 : 0) +
+      (day.exerciseCount > 0 ? (profile.exerciseRecoveryValue >= 4 ? 1.45 : 0.85) : 0) +
+      (lowDemandSocialHours >= 1 ? 0.7 : 0) +
+      (day.supportMinutes >= 120 ? 0.7 : 0) +
+      (careHours >= 1 ? 0.2 : 0);
     const scheduledRawSignal = Math.max(
       0,
       demand - support + friction + carryover - stabilizingCredit,
@@ -1219,7 +1514,7 @@ function buildDerivedMetrics(
     const recoveryGuard =
       (day.explicitRecoveryMinutes >= 90 ? 0.5 : 0) +
       (day.supportMinutes >= 120 ? 0.35 : 0) +
-      (openSupportSummary.strongSupportBlocks > 0 ? 0.25 : 0);
+      (openSupportSummary.strongSupportBlocks > 0 ? 0.08 : 0);
     const alreadyPlacedWorkRelief = Math.min(0.9, selfDirectedWorkHours * 0.35);
     const latentSelfDirectedHours = clamp(
       academicPressureAnchor *
@@ -1251,7 +1546,7 @@ function buildDerivedMetrics(
         return sum + proximityWeight * (0.65 + evaluativeDay.hours * 0.5);
       }, 0) -
         recoveryGuard * 0.4 -
-        Math.min(0.3, openSupportSummary.bufferedSupport * 0.22),
+        Math.min(0.08, openSupportSummary.bufferedSupport * 0.08),
       0,
       2.4,
     );
@@ -1267,9 +1562,9 @@ function buildDerivedMetrics(
       0,
       rawSignal * 0.16 -
         support * 0.28 -
-        openSupportSummary.explicitRecovery * 0.34 -
+        openSupportSummary.explicitRecovery * 0.12 -
         (day.exerciseCount > 0 ? 1.1 : 0) -
-        (openSupportSummary.strongSupportBlocks > 0 ? 0.45 : 0),
+        (openSupportSummary.strongSupportBlocks > 0 ? 0.08 : 0),
     );
 
     dailyLoadDebug.push({
@@ -1284,7 +1579,7 @@ function buildDerivedMetrics(
       fragmentationPenalty: Number(fragmentationPenalty.toFixed(2)),
       compressionPenalty: Number(compressionPenalty.toFixed(2)),
       openTimeSupport: Number(
-        (openSupportSummary.explicitRecovery + openSupportSummary.bufferedSupport + openSupportSummary.squeezeRelief).toFixed(2),
+        (openSupportSummary.bufferedSupport + openSupportSummary.squeezeRelief).toFixed(2),
       ),
       accumulationCarryover: Number(carryoverIn.toFixed(2)),
       rawScoreBeforeScaling: Number(rawSignal.toFixed(2)),
@@ -1293,23 +1588,33 @@ function buildDerivedMetrics(
 
     return rawSignal;
   });
+  const displayedDailyScores = dayAnalyses.map((_, index) => toDisplayLoadScore(dailyRawSignals[index] ?? 0));
+  const availableMargins = dayAnalyses.map((day) => Math.round(getOpenSupportSummary(day).availableMarginMinutes));
+  const initialOperatingModes = dayAnalyses.map((day, index) =>
+    getDailyOperatingMode(
+      day,
+      displayedDailyScores[index] ?? 0,
+      dailyLoadDebug[index]?.accumulationCarryover ?? 0,
+      availableMargins[index] ?? 0,
+      profile,
+    ),
+  );
+  const operatingModes = rebalanceWeeklyOperatingModes(
+    initialOperatingModes,
+    dayAnalyses,
+    displayedDailyScores,
+    availableMargins,
+    profile,
+  );
   const dailyLoadScores = dayAnalyses.map((day, index) => {
     const committedHours = day.committedMinutes / 60;
-    const carryoverIn = dailyLoadDebug[index]?.accumulationCarryover ?? 0;
-    const availableMarginMinutes = Math.round(getOpenSupportSummary(day).availableMarginMinutes);
-    const operatingMode = getDailyOperatingMode(
-      day,
-      toDisplayLoadScore(dailyRawSignals[index] ?? 0),
-      carryoverIn,
-      availableMarginMinutes,
-      profile,
-    );
+    const operatingMode = operatingModes[index] ?? "protected_work";
     const modeCopy = getDailyOperatingModeCopy(operatingMode, profile);
 
     return {
       label: day.label,
       date: day.date,
-      score: toDisplayLoadScore(dailyRawSignals[index] ?? 0),
+      score: displayedDailyScores[index] ?? 0,
       committedHours: Number(committedHours.toFixed(1)),
       operatingMode,
       modeTitle: modeCopy.title,
@@ -1516,18 +1821,22 @@ function pickBestFocusWindow(dayAnalyses: DayAnalysis[]) {
 }
 
 export function classifyWeekEvents(events: EphemeralGoogleEvent[]) {
-  return events.map((event) => {
-    const classification = classifyWeekEventTitle(event.rawTitle);
+  const rangeStart = startOfLocalDay(new Date());
+  const rangeEnd = addDays(rangeStart, DASHBOARD_DAYS);
 
-    return {
+  return events.flatMap((event) => {
+    const classifiedEvent = buildCanonicalClassifiedWeekEvent({
+      title: event.rawTitle,
+      description: event.rawDescription,
+      sourceCalendarId: event.sourceCalendarId,
       startTime: event.startTime,
       endTime: event.endTime,
       allDay: event.allDay,
-      durationMinutes: event.durationMinutes,
-      eventType: classification.eventType,
-      confidence: classification.confidence,
-      classificationSource: classification.classificationSource,
-    } satisfies ClassifiedWeekEvent;
+      rangeStart,
+      rangeEnd,
+    });
+
+    return classifiedEvent ? [classifiedEvent] : [];
   });
 }
 
@@ -1545,7 +1854,12 @@ export function createWeekAnalysisReport(
       const dayStart = startOfLocalDay(day);
       const dayEnd = addDays(dayStart, 1);
 
-      return event.endTime > dayStart && event.startTime < dayEnd;
+      return (
+        (event.includeInTrajectory ?? true) &&
+        (event.clippedEndTime ?? event.endTime) > dayStart &&
+        (event.clippedStartTime ?? event.startTime) < dayEnd &&
+        (event.countedDurationHours ?? event.durationMinutes / 60) > 0
+      );
     }), profile),
   );
   const metrics = buildDerivedMetrics(dayAnalyses, classifiedEvents, profile);
@@ -1682,6 +1996,69 @@ function buildWeekAnalysisHistoryRecordData(
   };
 }
 
+function shouldLogWeekAnalysisDebug() {
+  return process.env.NODE_ENV !== "production" || process.env.PROFILE_MODEL_DEBUG === "true";
+}
+
+function logWeekAnalysisDebug(classifiedEvents: ClassifiedWeekEvent[]) {
+  if (!shouldLogWeekAnalysisDebug()) {
+    return;
+  }
+
+  console.info("Week composition debug", {
+    events: classifiedEvents.map((event) => ({
+      eventTitle: event.title,
+      normalizedTitle: event.normalizedTitle,
+      startTime: event.startTime.toISOString(),
+      endTime: event.endTime.toISOString(),
+      clippedStartTime: (event.clippedStartTime ?? event.startTime).toISOString(),
+      clippedEndTime: (event.clippedEndTime ?? event.endTime).toISOString(),
+      rawDurationHours: event.rawDurationHours ?? event.durationMinutes / 60,
+      countedDurationHours: event.countedDurationHours ?? event.durationMinutes / 60,
+      isAllDayLike: event.isAllDayLike,
+      resolvedCategory: event.compositionCategory,
+      sourceCalendar: event.sourceCalendar,
+      matchedRule: event.matchedRule ?? "no_match",
+      includeInComposition: event.includeInComposition,
+    })),
+    totalHoursByCategory: Object.fromEntries(
+      COMPOSITION_CATEGORIES.map((category) => [
+        category,
+        Math.round(
+          classifiedEvents
+          .filter((event) => event.includeInComposition && event.compositionCategory === category)
+          .reduce((sum, event) => sum + (event.countedDurationHours ?? event.durationMinutes / 60), 0) * 100,
+        ) / 100,
+      ]),
+    ),
+    grandTotalCountedHours:
+      Math.round(
+        classifiedEvents
+          .filter((event) => event.includeInComposition)
+          .reduce((sum, event) => sum + (event.countedDurationHours ?? event.durationMinutes / 60), 0) * 100,
+      ) / 100,
+    totalCategorizedEvents: classifiedEvents.filter((event) => event.includeInComposition).length,
+  });
+  console.info("Recovery classification debug", {
+    events: classifiedEvents.map((event) => ({
+      eventTitle: event.title,
+      normalizedTitle: event.normalizedTitle,
+      detectedRecoveryCategory: event.recoveryCategory,
+      confidence: event.confidence ?? "low",
+      matchedRule: event.matchedRule ?? "no_match",
+      whyExcluded:
+        event.includeInRecoveryIslands
+          ? null
+          : `Resolved to ${event.eventType}, which is not included in Recovery Islands.`,
+      sourceCalendar: event.sourceCalendar,
+      rawDurationHours: event.rawDurationHours ?? event.durationMinutes / 60,
+      countedDurationHours: event.countedDurationHours ?? event.durationMinutes / 60,
+      isAllDayLike: event.isAllDayLike,
+      includeInRecoveryIslands: event.includeInRecoveryIslands,
+    })),
+  });
+}
+
 export async function deleteWeekAnalysisReport(userId: string) {
   await prisma.weekAnalysisReport.deleteMany({
     where: { userId },
@@ -1812,8 +2189,25 @@ export async function analyzeAndCacheWeek(userId: string) {
     availableCalendars,
   );
   const events = await fetchEphemeralSelectedCalendarEvents(userId, selectedCalendarIds);
-  const classifiedEvents = classifyWeekEvents(events);
-  const report = createWeekAnalysisReport(classifiedEvents, normalizedProfile);
+  const analyzedAt = new Date();
+  const rangeStart = startOfLocalDay(analyzedAt);
+  const rangeEnd = addDays(rangeStart, DASHBOARD_DAYS);
+  const classifiedEvents = events.flatMap((event) => {
+    const classifiedEvent = buildCanonicalClassifiedWeekEvent({
+      title: event.rawTitle,
+      description: event.rawDescription,
+      sourceCalendarId: event.sourceCalendarId,
+      startTime: event.startTime,
+      endTime: event.endTime,
+      allDay: event.allDay,
+      rangeStart,
+      rangeEnd,
+    });
+
+    return classifiedEvent ? [classifiedEvent] : [];
+  });
+  logWeekAnalysisDebug(classifiedEvents);
+  const report = createWeekAnalysisReport(classifiedEvents, normalizedProfile, analyzedAt);
   const reportData = buildWeekAnalysisRecordData(userId, report);
   const historyData = buildWeekAnalysisHistoryRecordData(userId, report);
 

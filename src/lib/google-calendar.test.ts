@@ -33,6 +33,7 @@ describe("google calendar helpers", () => {
   it("refreshes the token when it is about to expire", async () => {
     accountFindFirst.mockResolvedValue({
       id: "account-1",
+      userId: "user-1",
       access_token: "old-token",
       expires_at: Math.floor(Date.now() / 1000) - 5,
       refresh_token: "refresh-token",
@@ -51,11 +52,19 @@ describe("google calendar helpers", () => {
 
     expect(token).toBe("fresh-token");
     expect(accountUpdate).toHaveBeenCalledOnce();
+    expect(accountUpdate).toHaveBeenCalledWith({
+      where: { id: "account-1" },
+      data: expect.objectContaining({
+        access_token: "fresh-token",
+        refresh_token: "refresh-token",
+      }),
+    });
   });
 
   it("returns ephemeral events with transient titles only for classification", async () => {
     accountFindFirst.mockResolvedValue({
       id: "account-1",
+      userId: "user-1",
       access_token: "access-token",
       expires_at: Math.floor(Date.now() / 1000) + 3600,
       refresh_token: "refresh-token",
@@ -88,15 +97,18 @@ describe("google calendar helpers", () => {
         allDay: false,
         durationMinutes: 90,
         rawTitle: "Private meeting",
+        rawDescription: "Very private",
+        sourceCalendarId: "primary",
+        sourceKey: "evt-1",
       },
     ]);
-    expect("description" in events[0]).toBe(false);
     expect("attendees" in events[0]).toBe(false);
   });
 
   it("returns readable calendars for local selection UI", async () => {
     accountFindFirst.mockResolvedValue({
       id: "account-1",
+      userId: "user-1",
       access_token: "access-token",
       expires_at: Math.floor(Date.now() / 1000) + 3600,
       refresh_token: "refresh-token",
@@ -142,6 +154,7 @@ describe("google calendar helpers", () => {
   it("merges selected calendars into one transient event list", async () => {
     accountFindFirst.mockResolvedValue({
       id: "account-1",
+      userId: "user-1",
       access_token: "access-token",
       expires_at: Math.floor(Date.now() / 1000) + 3600,
       refresh_token: "refresh-token",
@@ -193,13 +206,15 @@ describe("google calendar helpers", () => {
     });
 
     await expect(getGoogleAccessToken("user-1")).rejects.toMatchObject({
-      code: "not_connected",
+      code: "refresh_failed",
+      detail: "reconnect_needed",
     } satisfies Partial<GoogleCalendarAccessError>);
   });
 
   it("throws a missing-access error when the saved account lacks calendar scope", async () => {
     accountFindFirst.mockResolvedValue({
       id: "account-1",
+      userId: "user-1",
       access_token: "access-token",
       expires_at: Math.floor(Date.now() / 1000) + 3600,
       refresh_token: "refresh-token",
@@ -219,5 +234,60 @@ describe("google calendar helpers", () => {
         { id: "primary-id", summary: "Personal", primary: true, accessRole: "owner" },
       ]),
     ).toEqual(["primary-id"]);
+  });
+
+  it("uses the stored refresh token when the access token is missing", async () => {
+    accountFindFirst.mockResolvedValue({
+      id: "account-1",
+      userId: "user-1",
+      access_token: null,
+      expires_at: null,
+      refresh_token: "refresh-token",
+      scope: "openid email profile https://www.googleapis.com/auth/calendar.readonly",
+    });
+
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        access_token: "fresh-token",
+        expires_in: 3600,
+      }),
+    } as Response);
+
+    await expect(getGoogleAccessToken("user-1")).resolves.toBe("fresh-token");
+  });
+
+  it("clears stale token state and surfaces reconnect when Google returns invalid_grant", async () => {
+    accountFindFirst.mockResolvedValue({
+      id: "account-1",
+      userId: "user-1",
+      access_token: "old-token",
+      expires_at: Math.floor(Date.now() / 1000) - 5,
+      refresh_token: "refresh-token",
+      scope: "openid email profile https://www.googleapis.com/auth/calendar.readonly",
+    });
+
+    vi.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      statusText: "Bad Request",
+      json: async () => ({
+        error: "invalid_grant",
+        error_description: "Token has been expired or revoked.",
+      }),
+    } as Response);
+
+    await expect(getGoogleAccessToken("user-1")).rejects.toMatchObject({
+      code: "refresh_failed",
+      detail: "invalid_credentials",
+    } satisfies Partial<GoogleCalendarAccessError>);
+    expect(accountUpdate).toHaveBeenCalledWith({
+      where: { id: "account-1" },
+      data: {
+        access_token: null,
+        expires_at: null,
+        refresh_token: null,
+      },
+    });
   });
 });

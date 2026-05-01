@@ -19,6 +19,8 @@ import {
   buildRecoveryIslandsInsight,
   getMarginSnapshot,
 } from "@/lib/dashboard-insights";
+import { resolveCompositionCategory, type WeekCompositionCategory } from "@/lib/week-event-classification";
+import { aggregateCategorizedDurations } from "@/lib/week-duration-aggregation";
 import {
   getGoogleCalendarUiStatus,
   getIncludedCalendarsSummary,
@@ -153,66 +155,78 @@ function buildCognitiveLoadSummary(
   };
 }
 
-function buildComposition(metrics: WeekAnalysisMetrics) {
-  const totalMinutes = safeNumber(metrics.totalCommittedMinutes) + safeNumber(metrics.totalOpenMinutes);
+function buildComposition(report: DashboardReport) {
+  const metrics = report.derivedMetrics;
+  const totalWeekMinutes = 7 * 24 * 60;
+  const sortedDays = [...metrics.weekShapeDays].sort((left, right) => left.date.getTime() - right.date.getTime());
+  const rangeStart = sortedDays[0]?.date;
+  const rangeEnd = sortedDays.length > 0
+    ? new Date(sortedDays[sortedDays.length - 1]!.date.getTime() + 24 * 60 * 60 * 1000)
+    : undefined;
+  const openMinutes = metrics.weekShapeDays.reduce(
+    (sum, day) =>
+      sum +
+      day.segments.reduce(
+        (daySum, segment) =>
+          segment.kind === "open" ? daySum + Math.max(0, segment.endMinute - segment.startMinute) : daySum,
+        0,
+      ),
+    0,
+  );
+  const compositionCategories: WeekCompositionCategory[] = [
+    "work_class",
+    "meetings_structured",
+    "social",
+    "recovery_solo",
+  ];
+  const aggregation =
+    rangeStart && rangeEnd
+      ? aggregateCategorizedDurations(
+          report.classifiedEvents
+            .filter((event) => (event.includeInComposition ?? true) && (event.compositionCategory ?? resolveCompositionCategory(event.eventType)))
+            .map((event) => ({
+              title: event.title,
+              startTime: event.clippedStartTime ?? event.startTime,
+              endTime: event.clippedEndTime ?? event.endTime,
+              sourceCalendarId: event.sourceCalendar,
+              resolvedCategory: event.compositionCategory ?? resolveCompositionCategory(event.eventType),
+            })),
+          {
+            categories: compositionCategories,
+            priority: compositionCategories,
+            rangeStart,
+            rangeEnd,
+          },
+        )
+      : null;
 
   return [
     {
       label: "Work / class",
-      minutes: safeNumber(metrics.workClassMinutes),
-      percent: toPercent(safeNumber(metrics.workClassMinutes), totalMinutes),
+      minutes: aggregation?.totals.work_class ?? 0,
+      percent: toPercent(aggregation?.totals.work_class ?? 0, totalWeekMinutes),
     },
     {
       label: "Meetings / structured",
-      minutes: safeNumber(metrics.meetingsStructuredMinutes),
-      percent: toPercent(safeNumber(metrics.meetingsStructuredMinutes), totalMinutes),
+      minutes: aggregation?.totals.meetings_structured ?? 0,
+      percent: toPercent(aggregation?.totals.meetings_structured ?? 0, totalWeekMinutes),
     },
     {
       label: "Social",
-      minutes: safeNumber(metrics.socialMinutes),
-      percent: toPercent(safeNumber(metrics.socialMinutes), totalMinutes),
+      minutes: aggregation?.totals.social ?? 0,
+      percent: toPercent(aggregation?.totals.social ?? 0, totalWeekMinutes),
     },
     {
       label: "Recovery / solo",
-      minutes: safeNumber(metrics.recoverySoloMinutes),
-      percent: toPercent(safeNumber(metrics.recoverySoloMinutes), totalMinutes),
+      minutes: aggregation?.totals.recovery_solo ?? 0,
+      percent: toPercent(aggregation?.totals.recovery_solo ?? 0, totalWeekMinutes),
     },
     {
       label: "Open time",
-      minutes: safeNumber(metrics.totalOpenMinutes),
-      percent: toPercent(safeNumber(metrics.totalOpenMinutes), totalMinutes),
+      minutes: openMinutes,
+      percent: toPercent(openMinutes, totalWeekMinutes),
     },
   ];
-}
-
-function buildCompositionInterpretation(
-  metrics: WeekAnalysisMetrics,
-  profile: CognitiveProfileSnapshot,
-) {
-  const totalVisibleMinutes = Math.max(
-    1,
-    safeNumber(metrics.totalCommittedMinutes) + safeNumber(metrics.totalOpenMinutes),
-  );
-  const openShare = safeNumber(metrics.totalOpenMinutes) / totalVisibleMinutes;
-  const socialShare = safeNumber(metrics.socialMinutes) / totalVisibleMinutes;
-  const recoveryShare = safeNumber(metrics.recoverySoloMinutes) / totalVisibleMinutes;
-  const structuredShare =
-    (safeNumber(metrics.workClassMinutes) + safeNumber(metrics.meetingsStructuredMinutes)) /
-    totalVisibleMinutes;
-  const socialRead =
-    socialShare >= 0.12
-      ? profile.socialRecoveryValue >= 4
-        ? "Social plans are a meaningful part of the week and may function more like recovery than interruption."
-        : "Social plans take a meaningful share of the week, so they may read as real load rather than neutral background time."
-      : "Social time is present, but it does not dominate the week’s overall composition.";
-  const recoveryRead =
-    recoveryShare <= 0.08 && structuredShare >= 0.32
-      ? "Explicit recovery and solo space are relatively thin compared with the structured load, so the week may feel tighter in practice than the hours alone suggest."
-      : openShare >= 0.4
-        ? "A large share of the visible week is still open, but whether that time feels restorative or truly usable depends on how protected it stays."
-        : "The week is composed more by commitments than by open space, so small shifts in placement will matter more than adding volume.";
-
-  return `${socialRead} ${recoveryRead}`;
 }
 
 function buildTrajectorySummary(
@@ -338,7 +352,7 @@ function buildRecoveryIslands(
   report: DashboardReport,
   profile: CognitiveProfileSnapshot,
 ) {
-  return buildRecoveryIslandsInsight(report.derivedMetrics, profile);
+  return buildRecoveryIslandsInsight(report.classifiedEvents, report.derivedMetrics, profile);
 }
 
 function formatMinuteClock(minute: number) {
@@ -474,6 +488,7 @@ export default async function DashboardPage({
   const calendarStatusParam = typeof params?.calendar === "string" ? params.calendar : null;
   const state = await getWeekAnalysisDashboardState(user.id);
   const googleOAuthConfigured = isGoogleOAuthConfigured();
+  const debugMode = process.env.PROFILE_MODEL_DEBUG === "true" || process.env.NODE_ENV !== "production";
 
   if (!state.profile) {
     redirect("/onboarding");
@@ -513,11 +528,7 @@ export default async function DashboardPage({
     && state.normalizedProfile
     ? buildCognitiveLoadSummary(state.report.derivedMetrics, state.normalizedProfile)
     : null;
-  const composition = state.report ? buildComposition(state.report.derivedMetrics) : [];
-  const compositionInterpretation =
-    state.report && state.normalizedProfile
-      ? buildCompositionInterpretation(state.report.derivedMetrics, state.normalizedProfile)
-      : "";
+  const composition = state.report ? buildComposition(state.report) : [];
   const balanceFeedback =
     state.report && state.normalizedProfile
       ? buildPatternFeedback(state.report.derivedMetrics, state.normalizedProfile)
@@ -636,8 +647,7 @@ export default async function DashboardPage({
               Reconnect Google Calendar
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-              The existing Google connection is no longer usable for a clean read of the week.
-              Reconnect in Settings, then run a fresh analysis.
+              Google Calendar access expired. Reconnect Google Calendar, then run a fresh analysis.
             </p>
           </section>
         ) : state.report ? (
@@ -694,22 +704,17 @@ export default async function DashboardPage({
               )}
 
               {composition.length > 0 ? (
-                <section className="rounded-[32px] border border-[#E3E6EA] bg-[#EEF1F4] px-7 py-7 shadow-[var(--surface-shadow)] backdrop-blur">
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#8a7457]">
-                      How your week is composed
-                    </p>
-                    <h2 className="font-serif text-[2rem] leading-tight text-slate-950">
-                      Week composition
-                    </h2>
-                  </div>
-                  <div className="mt-6 space-y-4">
+                <section className="rounded-[32px] border border-[#E3E6EA] bg-[#EEF1F4] px-7 py-6 shadow-[var(--surface-shadow)] backdrop-blur">
+                  <h2 className="font-serif text-[2rem] leading-tight text-slate-950">
+                    Week composition
+                  </h2>
+                  <div className="mt-5 space-y-4">
                     {composition.map((item) => (
                       <article key={item.label} className="space-y-2.5">
                         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-4">
                           <p className="text-sm font-semibold text-slate-900">{item.label}</p>
                           <p className="text-right text-sm tabular-nums text-slate-600">
-                            {item.percent}% · {formatMinutesAsHours(item.minutes)}
+                            {formatMinutesAsHours(item.minutes)}
                           </p>
                         </div>
                         <div className="h-2 overflow-hidden rounded-full bg-white">
@@ -721,11 +726,6 @@ export default async function DashboardPage({
                       </article>
                     ))}
                   </div>
-                  {compositionInterpretation ? (
-                    <p className="mt-5 max-w-2xl text-sm leading-7 text-slate-600">
-                      {compositionInterpretation}
-                    </p>
-                  ) : null}
                 </section>
               ) : (
                 <div />
@@ -734,52 +734,48 @@ export default async function DashboardPage({
 
             <section>
               {recoveryIslands && recoveryIslands.detectableRecoveryBlockCount >= 2 ? (
-                <section className="rounded-[32px] border border-[#E8E2DB] bg-[linear-gradient(180deg,rgba(252,249,245,0.98),rgba(247,242,235,0.92))] px-6 py-6 shadow-[var(--surface-shadow)] backdrop-blur xl:mx-auto xl:max-w-[76rem] xl:px-8 xl:py-8">
-                  <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)] xl:items-start">
-                    <div className="space-y-3">
-                      <div className="space-y-1">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#8f7b85]">
-                          Recovery islands
-                        </p>
-                        <h2 className="font-serif text-[1.95rem] leading-tight text-slate-900">
-                          Where support is already visible
-                        </h2>
+                <section className="rounded-[32px] border border-[#C9D7CC] bg-[linear-gradient(180deg,rgba(233,241,234,0.98),rgba(226,236,227,0.94))] px-6 py-6 shadow-[var(--surface-shadow)] backdrop-blur xl:mx-auto xl:max-w-[76rem] xl:px-8 xl:py-6">
+                  <div className="grid gap-5 xl:grid-cols-[380px_minmax(0,1fr)] xl:items-center">
+                    <aside className="rounded-[24px] border border-[#D0DBD1] bg-[rgba(255,255,255,0.66)] px-5 py-4">
+                      <p className="text-sm font-semibold text-slate-900">
+                        Through your profile
+                      </p>
+                      <div className="mt-3 space-y-2.5 text-[14px] leading-6 text-slate-700">
+                        <p>{recoveryIslands.profileBestWith}</p>
+                        <div className="flex items-start gap-2">
+                          <span className="mt-2 h-1.5 w-1.5 rounded-full bg-[#7BAA8D]" />
+                          <p>{recoveryIslands.profileAlreadyVisible}</p>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <span className="mt-2 h-1.5 w-1.5 rounded-full bg-[#B7A9D6]" />
+                          <p>{recoveryIslands.profilePriority}</p>
+                        </div>
                       </div>
-                      <p className="max-w-3xl text-[15px] leading-7 text-slate-700">
+                    </aside>
+
+                    <div className="space-y-2 xl:pl-4">
+                      <h2 className="font-serif text-[1.95rem] leading-tight text-slate-900">
+                        Recovery Islands
+                      </h2>
+                      <p className="max-w-3xl text-[15px] leading-[1.65] text-slate-700">
                         {recoveryIslands.summary}
                       </p>
-                      <p className="max-w-3xl text-[15px] leading-7 text-slate-600">
+                      <p className="max-w-3xl text-[15px] leading-[1.65] text-slate-600">
                         {recoveryIslands.supportingLine}
                       </p>
                     </div>
-
-                    <aside className="rounded-[24px] border border-[#E8E2DB] bg-[rgba(255,255,255,0.62)] px-5 py-5">
-                      <p className="text-sm font-semibold text-slate-900">
-                        {recoveryIslands.meaningTitle}
-                      </p>
-                      <div className="mt-3 space-y-3">
-                        {recoveryIslands.meaningLines.map((line) => (
-                          <p key={line} className="text-[15px] leading-7 text-slate-700">
-                            {line}
-                          </p>
-                        ))}
-                      </div>
-                      <p className="mt-4 text-[13px] leading-6 text-[#6b7b68]">
-                        {recoveryIslands.idealRecoveryLine}
-                      </p>
-                    </aside>
                   </div>
 
-                  <div className="mt-7">
+                  <div className="mt-5">
                     <RecoveryIslandsVisual days={recoveryIslands.days} />
                   </div>
 
-                  <div className="mt-7 grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)] xl:items-start">
-                    <div className="rounded-[22px] border border-[#E8E2DB] bg-[rgba(255,255,255,0.72)] px-5 py-4">
+                  <div className="mt-5 grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)] xl:items-start">
+                    <div className="rounded-[22px] border border-[#D0DBD1] bg-[rgba(255,255,255,0.72)] px-5 py-4">
                       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
                         <div>
                           <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
-                            Total recovery time
+                            Scheduled recovery
                           </p>
                           <p className="mt-2 font-serif text-[2rem] leading-none text-slate-900">
                             {Math.round((recoveryIslands.totalRecoveryMinutes / 60) * 10) / 10}h
@@ -807,15 +803,8 @@ export default async function DashboardPage({
                     <RecoveryLegendCard />
                   </div>
 
-                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-[12px] leading-6 text-slate-500">
-                    {recoveryIslands.dominantRecoveryModes.length > 0 ? (
-                      <span>
-                        Most visible support: {recoveryIslands.dominantRecoveryModes.join(" and ")}
-                      </span>
-                    ) : (
-                      <span />
-                    )}
-                    <span className="text-center">
+                  <div className="mt-4 text-center text-[12px] leading-6 text-slate-500">
+                    <span>
                       These are islands, not quotas. Small moments add up.
                     </span>
                   </div>
@@ -871,6 +860,49 @@ export default async function DashboardPage({
             </p>
           </section>
         )}
+
+        {debugMode && state.report ? (
+          <section className="rounded-[28px] border border-[#E8E2DB] bg-white p-6 shadow-[var(--surface-shadow)] backdrop-blur">
+            <h2 className="font-serif text-2xl leading-tight text-slate-900">Debug: classified events</h2>
+            <div className="mt-4 overflow-x-auto">
+              <table className="min-w-full text-left text-sm text-slate-700">
+                <thead className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                  <tr>
+                    <th className="pb-3 pr-4">Title</th>
+                    <th className="pb-3 pr-4">Raw h</th>
+                    <th className="pb-3 pr-4">Counted h</th>
+                    <th className="pb-3 pr-4">All-day</th>
+                    <th className="pb-3 pr-4">Composition</th>
+                    <th className="pb-3 pr-4">Recovery</th>
+                    <th className="pb-3 pr-4">Trajectory</th>
+                    <th className="pb-3 pr-4">Flags</th>
+                    <th className="pb-3">Rule</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {state.report.classifiedEvents.map((event) => (
+                    <tr key={`${event.title}-${event.startTime.toISOString()}`} className="border-t border-[#EEE7DF] align-top">
+                      <td className="py-3 pr-4">
+                        <div className="font-medium text-slate-900">{event.title}</div>
+                        <div className="text-xs text-slate-500">{event.sourceCalendar}</div>
+                      </td>
+                      <td className="py-3 pr-4 tabular-nums">{(event.rawDurationHours ?? event.durationMinutes / 60).toFixed(2)}</td>
+                      <td className="py-3 pr-4 tabular-nums">{(event.countedDurationHours ?? event.durationMinutes / 60).toFixed(2)}</td>
+                      <td className="py-3 pr-4">{event.isAllDayLike ? "yes" : "no"}</td>
+                      <td className="py-3 pr-4">{event.compositionCategory ?? "excluded"}</td>
+                      <td className="py-3 pr-4">{event.recoveryCategory ?? "excluded"}</td>
+                      <td className="py-3 pr-4">{event.trajectoryLoadCategory}</td>
+                      <td className="py-3 pr-4 text-xs text-slate-500">
+                        C:{event.includeInComposition ? "Y" : "N"} R:{event.includeInRecoveryIslands ? "Y" : "N"} T:{event.includeInTrajectory ? "Y" : "N"}
+                      </td>
+                      <td className="py-3 text-xs text-slate-500">{event.matchedRule ?? "no_match"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ) : null}
       </main>
     </AppShell>
   );

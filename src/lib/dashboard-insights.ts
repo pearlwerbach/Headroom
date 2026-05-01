@@ -1,6 +1,5 @@
 import type { RecoveryIslandDay, RecoveryIslandSegment } from "@/components/recovery-islands-visual";
-import { DEFAULT_WAKE_HOUR } from "@/lib/constants";
-import type { CognitiveProfileSnapshot, WeekAnalysisMetrics } from "@/lib/domain";
+import type { ClassifiedWeekEvent, CognitiveProfileSnapshot, WeekAnalysisMetrics } from "@/lib/domain";
 
 function safeNumber(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
@@ -31,51 +30,114 @@ function getRecoveryModeLabel(tone: RecoveryIslandSegment["tone"]) {
     case "care":
       return "Meals / care";
     case "rest":
-      return "Rest block";
+      return "Explicit rest";
     case "open":
     default:
-      return "Open margin";
+      return "Unplanned time";
   }
 }
 
-function formatClockTime(totalMinutesFromWake: number) {
-  const absoluteMinutes = DEFAULT_WAKE_HOUR * 60 + totalMinutesFromWake;
-  const hour24 = Math.floor(absoluteMinutes / 60);
-  const minute = absoluteMinutes % 60;
-  const meridiem = hour24 >= 12 ? "PM" : "AM";
-  const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
-
-  return `${hour12}:${minute.toString().padStart(2, "0")} ${meridiem}`;
+function getApproximateTimeLabel(startMinute: number, endMinute: number) {
+  const midpoint = (startMinute + endMinute) / 2;
+  return midpoint < 300 ? "Morning" : midpoint < 660 ? "Afternoon" : "Evening";
 }
 
-function formatTimeRange(startMinute: number, endMinute: number) {
-  return `${formatClockTime(startMinute)} - ${formatClockTime(endMinute)}`;
+const RECOVERY_OPEN_WINDOW_START = 60;
+const RECOVERY_OPEN_WINDOW_END = 900;
+const MIN_OPEN_RECOVERY_MINUTES = 60;
+const MAX_OPEN_RECOVERY_MINUTES = 60;
+const MAX_VISIBLE_OPEN_SEGMENTS_PER_WEEK = 3;
+
+function segmentsCollide(
+  left: Pick<RecoveryIslandSegment, "startMinute" | "endMinute">,
+  right: Pick<RecoveryIslandSegment, "startMinute" | "endMinute">,
+  paddingMinutes = 24,
+) {
+  return (
+    left.startMinute < right.endMinute + paddingMinutes &&
+    right.startMinute < left.endMinute + paddingMinutes
+  );
+}
+
+function getBoundedOpenRecoverySegment(segment: RecoveryIslandSegment | { startMinute: number; endMinute: number; emphasis?: "focus" | "fragmented" }) {
+  const boundedStart = Math.max(RECOVERY_OPEN_WINDOW_START, segment.startMinute);
+  const boundedEnd = Math.min(RECOVERY_OPEN_WINDOW_END, segment.endMinute);
+  const boundedDuration = Math.max(0, boundedEnd - boundedStart);
+
+  if (boundedDuration < MIN_OPEN_RECOVERY_MINUTES || segment.emphasis !== "fragmented") {
+    return null;
+  }
+
+  const effectiveEnd = boundedStart + Math.min(MAX_OPEN_RECOVERY_MINUTES, boundedDuration);
+
+  return {
+    startMinute: boundedStart,
+    endMinute: effectiveEnd,
+    durationMinutes: effectiveEnd - boundedStart,
+    emphasis: segment.emphasis,
+  };
 }
 
 function getRecoveryDisplayLabel(
   tone: RecoveryIslandSegment["tone"],
-  startMinute: number,
-  durationMinutes: number,
 ) {
   switch (tone) {
     case "exercise":
-      if (startMinute < 180) {
-        return "Morning movement";
-      }
-      return durationMinutes >= 75 ? "Movement block" : "Movement break";
+      return "Movement block";
     case "social":
-      return durationMinutes >= 75 ? "Community time" : "Social support";
+      return "Social support";
     case "care":
-      return startMinute < 180 ? "Slow morning" : "Meals / care";
+      return "Meals / care";
     case "rest":
-      if (startMinute >= 600) {
-        return "Evening reset";
-      }
-      return startMinute < 180 ? "Quiet morning" : "Reset block";
+      return "Explicit rest";
     case "open":
     default:
-      return "Breathing room";
+      return "Unplanned time";
   }
+}
+
+function getProfileBestWith(profile: CognitiveProfileSnapshot) {
+  const preferredMode = profile.preferredRecoveryModes[0] ?? "quiet";
+
+  if (preferredMode === "exercise" || profile.exerciseRecoveryValue >= 5) {
+    return "Best with: movement before or after tighter stretches.";
+  }
+
+  if (preferredMode === "social" || profile.socialRecoveryValue >= 5) {
+    return "Best with: buffered social support that still feels restorative.";
+  }
+
+  return "Best with: longer quiet blocks and slower transitions.";
+}
+
+function getDominantTone(
+  toneMinutes: Record<RecoveryIslandSegment["tone"], number>,
+  exclude: RecoveryIslandSegment["tone"][] = [],
+) {
+  return (Object.entries(toneMinutes) as Array<[RecoveryIslandSegment["tone"], number]>)
+    .filter(([tone, minutes]) => minutes > 0 && !exclude.includes(tone))
+    .sort((left, right) => right[1] - left[1])[0]?.[0];
+}
+
+function getProfilePriorityLine(
+  profile: CognitiveProfileSnapshot,
+  toneMinutes: Record<RecoveryIslandSegment["tone"], number>,
+) {
+  const preferredMode = profile.preferredRecoveryModes[0] ?? "quiet";
+
+  if ((preferredMode === "exercise" || profile.exerciseRecoveryValue >= 5) && toneMinutes.exercise === 0) {
+    return "Prioritize: movement near the tighter stretches.";
+  }
+
+  if ((preferredMode === "social" || profile.socialRecoveryValue >= 5) && toneMinutes.social === 0) {
+    return "Prioritize: buffered social support that does not create extra switching.";
+  }
+
+  if (toneMinutes.rest + toneMinutes.care === 0) {
+    return "Prioritize: meals/care or explicit rest before tighter stretches.";
+  }
+
+  return "Prioritize: keeping the recovery that is already visible intact.";
 }
 
 function getIdealRecoveryLine(profile: CognitiveProfileSnapshot) {
@@ -122,81 +184,128 @@ export function buildPlanningStyleRead(
 }
 
 export function buildRecoveryIslandsInsight(
-  metrics: WeekAnalysisMetrics,
-  profile: CognitiveProfileSnapshot,
+  classifiedEventsOrMetrics: ClassifiedWeekEvent[] | WeekAnalysisMetrics,
+  metricsOrProfile: WeekAnalysisMetrics | CognitiveProfileSnapshot,
+  maybeProfile?: CognitiveProfileSnapshot,
 ) {
+  const classifiedEvents = Array.isArray(classifiedEventsOrMetrics) ? classifiedEventsOrMetrics : [];
+  const metrics = Array.isArray(classifiedEventsOrMetrics)
+    ? (metricsOrProfile as WeekAnalysisMetrics)
+    : classifiedEventsOrMetrics;
+  const profile = (Array.isArray(classifiedEventsOrMetrics)
+    ? maybeProfile
+    : metricsOrProfile) as CognitiveProfileSnapshot;
+
   const days: RecoveryIslandDay[] = metrics.weekShapeDays.map((day) => {
-    const segments: RecoveryIslandSegment[] = [];
+    const scheduledSegments: RecoveryIslandSegment[] = classifiedEvents.length > 0
+      ? classifiedEvents
+      .filter((event) =>
+        (event.includeInRecoveryIslands ?? true) &&
+        event.recoveryCategory !== null &&
+        (event.clippedEndTime ?? event.endTime) > day.date &&
+        (event.clippedStartTime ?? event.startTime) < new Date(day.date.getTime() + 24 * 60 * 60 * 1000),
+      )
+      .map((event) => {
+        const wake = 7 * 60;
+        const dayStart = new Date(day.date);
+        const eventStart = event.clippedStartTime ?? event.startTime;
+        const eventEnd = event.clippedEndTime ?? event.endTime;
+        const startMinute = Math.max(
+          0,
+          Math.round((eventStart.getTime() - dayStart.getTime()) / (1000 * 60)) - wake,
+        );
+        const endMinute = Math.max(
+          startMinute,
+          Math.round((eventEnd.getTime() - dayStart.getTime()) / (1000 * 60)) - wake,
+        );
 
-    for (const segment of day.segments) {
-      const durationMinutes = Math.max(0, segment.endMinute - segment.startMinute);
+        return {
+          startMinute,
+          endMinute,
+          tone: event.recoveryCategory === "care"
+            ? "care"
+            : event.recoveryCategory === "social"
+              ? "social"
+              : event.recoveryCategory === "rest"
+                ? "rest"
+                : "exercise",
+          emphasis: "steady" as const,
+          displayLabel: getRecoveryDisplayLabel(
+            event.recoveryCategory === "care"
+              ? "care"
+              : event.recoveryCategory === "social"
+                ? "social"
+                : event.recoveryCategory === "rest"
+                  ? "rest"
+                  : "exercise",
+          ),
+          timeLabel: getApproximateTimeLabel(startMinute, endMinute),
+        } satisfies RecoveryIslandSegment;
+      })
+      : day.segments.flatMap((segment) => {
+        const durationMinutes = Math.max(0, segment.endMinute - segment.startMinute);
 
-      if (durationMinutes <= 0) {
-        continue;
-      }
-
-      if (segment.kind === "event") {
-        if (segment.eventType === "exercise") {
-          segments.push({
-            startMinute: segment.startMinute,
-            endMinute: segment.endMinute,
-            tone: "exercise",
-            emphasis: "steady",
-            displayLabel: getRecoveryDisplayLabel("exercise", segment.startMinute, durationMinutes),
-            timeLabel: durationMinutes >= 35 ? formatTimeRange(segment.startMinute, segment.endMinute) : undefined,
-          });
-        } else if (segment.eventType === "social") {
-          segments.push({
-            startMinute: segment.startMinute,
-            endMinute: segment.endMinute,
-            tone: "social",
-            emphasis: "steady",
-            displayLabel: getRecoveryDisplayLabel("social", segment.startMinute, durationMinutes),
-            timeLabel: durationMinutes >= 35 ? formatTimeRange(segment.startMinute, segment.endMinute) : undefined,
-          });
-        } else if (
-          segment.eventType === "meal" ||
-          segment.eventType === "personal_care" ||
-          segment.eventType === "errand"
-        ) {
-          segments.push({
-            startMinute: segment.startMinute,
-            endMinute: segment.endMinute,
-            tone: "care",
-            emphasis: "steady",
-            displayLabel: getRecoveryDisplayLabel("care", segment.startMinute, durationMinutes),
-            timeLabel: durationMinutes >= 35 ? formatTimeRange(segment.startMinute, segment.endMinute) : undefined,
-          });
+        if (segment.kind !== "event" || durationMinutes <= 0 || !segment.eventType) {
+          return [];
         }
-      }
 
-      if (segment.kind === "open") {
-        if (durationMinutes >= 110 && segment.emphasis !== "fragmented") {
-          segments.push({
-            startMinute: segment.startMinute,
-            endMinute: segment.endMinute,
-            tone: "rest",
-            emphasis: "steady",
-            displayLabel: getRecoveryDisplayLabel("rest", segment.startMinute, durationMinutes),
-            timeLabel: durationMinutes >= 45 ? formatTimeRange(segment.startMinute, segment.endMinute) : undefined,
-          });
-        } else if (durationMinutes >= 45) {
-          segments.push({
-            startMinute: segment.startMinute,
-            endMinute: segment.endMinute,
-            tone: "open",
-            emphasis: segment.emphasis === "fragmented" ? "tentative" : "steady",
-            displayLabel: durationMinutes >= 70 ? getRecoveryDisplayLabel("open", segment.startMinute, durationMinutes) : undefined,
-            timeLabel:
-              durationMinutes >= 75 && segment.emphasis !== "fragmented"
-                ? formatTimeRange(segment.startMinute, segment.endMinute)
-                : undefined,
-          });
+        const recoveryCategory =
+          segment.eventType === "exercise"
+            ? "exercise"
+            : segment.eventType === "social"
+              ? "social"
+              : segment.eventType === "meal" || segment.eventType === "personal_care" || segment.eventType === "errand"
+                ? "care"
+                : segment.eventType === "rest"
+                  ? "rest"
+                  : null;
+
+        if (!recoveryCategory) {
+          return [];
         }
-      }
+
+        const tone = recoveryCategory === "care"
+          ? "care"
+          : recoveryCategory === "social"
+            ? "social"
+            : recoveryCategory === "rest"
+              ? "rest"
+              : "exercise";
+
+        return [{
+          startMinute: segment.startMinute,
+          endMinute: segment.endMinute,
+          tone,
+          emphasis: "steady" as const,
+          displayLabel: getRecoveryDisplayLabel(tone),
+          timeLabel: getApproximateTimeLabel(segment.startMinute, segment.endMinute),
+        }];
+      });
+
+    const openRecoveryCandidate = day.segments
+      .filter((segment) => segment.kind === "open")
+      .map((segment) => getBoundedOpenRecoverySegment(segment))
+      .filter((segment): segment is NonNullable<typeof segment> => segment !== null)
+      .filter((segment) =>
+        scheduledSegments.every((scheduledSegment) => !segmentsCollide(segment, scheduledSegment)),
+      )
+      .sort((left, right) => Math.abs(75 - left.durationMinutes) - Math.abs(75 - right.durationMinutes))[0];
+
+    const segments = [...scheduledSegments];
+
+    if (openRecoveryCandidate) {
+      segments.push({
+        startMinute: openRecoveryCandidate.startMinute,
+        endMinute: openRecoveryCandidate.endMinute,
+        tone: "open",
+        emphasis: "tentative",
+        displayLabel: getRecoveryDisplayLabel("open"),
+        timeLabel: getApproximateTimeLabel(openRecoveryCandidate.startMinute, openRecoveryCandidate.endMinute),
+      });
     }
 
-    const totalRecoveryMinutes = segments.reduce(
+    const totalRecoveryMinutes = scheduledSegments
+      .reduce(
       (sum, segment) => sum + (segment.endMinute - segment.startMinute),
       0,
     );
@@ -209,7 +318,30 @@ export function buildRecoveryIslandsInsight(
     };
   });
 
-  const toneMinutes = days.flatMap((day) => day.segments).reduce<Record<RecoveryIslandSegment["tone"], number>>(
+  const openCandidates = days.flatMap((day) =>
+    day.segments
+      .filter((segment) => segment.tone === "open")
+      .map((segment) => ({
+        day,
+        segment,
+        score: Math.abs(75 - (segment.endMinute - segment.startMinute)),
+      })),
+  );
+  const keptOpenKeys = new Set(
+    openCandidates
+      .sort((left, right) => left.score - right.score)
+      .slice(0, MAX_VISIBLE_OPEN_SEGMENTS_PER_WEEK)
+      .map(({ day, segment }) => `${day.date.toISOString()}-${segment.startMinute}-${segment.endMinute}`),
+  );
+  const normalizedDays = days.map((day) => ({
+    ...day,
+    segments: day.segments.filter((segment) =>
+      segment.tone !== "open" ||
+      keptOpenKeys.has(`${day.date.toISOString()}-${segment.startMinute}-${segment.endMinute}`),
+    ),
+  }));
+
+  const toneMinutes = normalizedDays.flatMap((day) => day.segments).reduce<Record<RecoveryIslandSegment["tone"], number>>(
     (totals, segment) => {
       totals[segment.tone] += segment.endMinute - segment.startMinute;
       return totals;
@@ -222,9 +354,17 @@ export function buildRecoveryIslandsInsight(
       open: 0,
     },
   );
-  const totalRecoveryMinutes = Object.values(toneMinutes).reduce((sum, minutes) => sum + minutes, 0);
-  const activeDays = days.filter((day) => day.totalRecoveryMinutes > 0);
-  const detectableRecoveryBlockCount = days.reduce((sum, day) => sum + day.segments.length, 0);
+  const totalRecoveryMinutes =
+    toneMinutes.exercise +
+    toneMinutes.social +
+    toneMinutes.care +
+    toneMinutes.rest;
+  const usableBufferMinutes = toneMinutes.open;
+  const activeDays = normalizedDays.filter((day) => day.totalRecoveryMinutes > 0);
+  const detectableRecoveryBlockCount = normalizedDays.reduce(
+    (sum, day) => sum + day.segments.filter((segment) => segment.tone !== "open").length,
+    0,
+  );
   const topDays = [...activeDays]
     .sort((left, right) => right.totalRecoveryMinutes - left.totalRecoveryMinutes)
     .slice(0, 2)
@@ -234,7 +374,7 @@ export function buildRecoveryIslandsInsight(
   const dominantRecoveryModes = (
     Object.entries(toneMinutes) as Array<[RecoveryIslandSegment["tone"], number]>
   )
-    .filter(([, minutes]) => minutes > 0)
+    .filter(([tone, minutes]) => minutes > 0 && tone !== "open")
     .sort((left, right) => right[1] - left[1])
     .slice(0, 2)
     .map(([tone]) => getRecoveryModeLabel(tone));
@@ -243,70 +383,47 @@ export function buildRecoveryIslandsInsight(
     "Recovery is barely visible in the calendar this week, so most reset will need to be protected intentionally rather than assumed from leftover time.";
   let supportingLine =
     "There is not enough visible support here to do a detailed subtype read, so the safest assumption is that recovery needs deliberate placement.";
-  let meaningTitle = "What this means";
-  let meaningLines = [
-    "Visible recovery is still fairly light, so whatever support exists here matters more than it might seem.",
-    "The most useful move is to keep at least some of it from being quietly reassigned to more work.",
-  ];
   const idealRecoveryLine = getIdealRecoveryLine(profile);
+  let profileAlreadyVisible = "Already visible: recovery is still fairly light in the calendar.";
+  let profilePriority = "Prioritize: protecting one or two visible recovery blocks this week.";
 
   if (totalRecoveryMinutes > 0) {
-    if (toneMinutes.open > 0 && toneMinutes.exercise + toneMinutes.social + toneMinutes.care + toneMinutes.rest === 0) {
-      summary =
-        activeDays.length >= 3
-          ? `Some recovery is showing up mainly as breathable open space, with the clearest room around ${formatDayList(topDays)}.`
-          : `A small amount of recovery is visible mainly as open margin, especially around ${formatDayList(topDays)}.`;
-      meaningTitle = "Breathing room";
-      meaningLines = [
-        "Most of the visible support here is unplanned space rather than explicit recovery blocks.",
-        "That can still help, especially if those openings stay breathable instead of absorbing extra work by default.",
-      ];
-    } else {
-      summary =
-        activeDays.length >= 4
-          ? `Visible recovery shows up across much of the week, with the clearest islands around ${formatDayList(topDays)}.`
-          : `Visible recovery is present, but it clusters most clearly around ${formatDayList(topDays)}.`;
-      meaningTitle = "What this means";
-      meaningLines =
-        detectableRecoveryBlockCount >= 4
-          ? [
-              "You have visible recovery touchpoints across the week, which gives your capacity somewhere to land before the next tighter stretch.",
-              "The main planning job is to keep those islands intact rather than treating them as optional extras.",
-            ]
-          : [
-              "Some real support is visible here, even if it is not carrying the whole week on its own.",
-              "That still matters, because it shows the schedule is making at least a little room for restoration instead of only throughput.",
-            ];
+    summary =
+      activeDays.length >= 4
+        ? `Recovery is visible across the week, with the clearest support around ${formatDayList(topDays)}.`
+        : `Recovery is visible, but it clusters most clearly around ${formatDayList(topDays)}.`;
+
+    const dominantTone = getDominantTone(toneMinutes, ["open"]);
+    supportingLine = dominantTone
+      ? `Most of the scheduled support appears as ${getRecoveryModeLabel(dominantTone).toLowerCase()}, with smaller pockets elsewhere in the week.`
+      : "Visible scheduled recovery is present, but still relatively light across the week.";
+
+    const dominantVisibleTone = getDominantTone(toneMinutes, ["open"]);
+    if (dominantVisibleTone === "exercise") {
+      profileAlreadyVisible = "Already visible: movement is showing up at useful points in the week.";
+    } else if (dominantVisibleTone === "care") {
+      profileAlreadyVisible = "Already visible: meals and care routines are giving the week some structure.";
+    } else if (dominantVisibleTone === "rest") {
+      profileAlreadyVisible = "Already visible: explicit rest is visible in a few useful pockets.";
+    } else if (dominantVisibleTone === "social") {
+      profileAlreadyVisible = "Already visible: social support is part of the recovery picture this week.";
     }
 
-    if (toneMinutes.exercise > 0 && profile.exerciseRecoveryValue >= 4) {
-      supportingLine =
-        "Active reset is doing visible work here, which is a meaningful way for this profile to protect bandwidth before or after tighter stretches.";
-    } else if (toneMinutes.rest + toneMinutes.care > 0 && profile.quietRecoveryValue >= 4) {
-      supportingLine =
-        "Quieter recovery is visible here, and for this profile it is more likely to help when it appears in longer, protected islands rather than only in leftovers.";
-    } else if (toneMinutes.social > 0 && profile.socialRecoveryValue >= 4) {
-      supportingLine =
-        "Social support is part of the recovery picture here, especially when it is buffered enough to feel restorative instead of like another transition.";
-    } else if (toneMinutes.open > 0) {
-      supportingLine =
-        "A meaningful share of recovery is coming from unplanned time, which can help if those openings stay breathable and do not get quietly reassigned to more work.";
-    } else {
-      supportingLine =
-        "Visible recovery exists, and it suggests at least some intention to protect bandwidth even if those blocks are still relatively light.";
-    }
+    profilePriority = getProfilePriorityLine(profile, toneMinutes);
   }
 
   return {
-    days,
+    days: normalizedDays,
     summary,
     supportingLine,
     idealRecoveryLine,
-    meaningTitle,
-    meaningLines,
+    profileBestWith: getProfileBestWith(profile),
+    profileAlreadyVisible,
+    profilePriority,
     detectableRecoveryBlockCount,
     visibleRecoveryDayCount: activeDays.length,
     totalRecoveryMinutes,
+    usableBufferMinutes,
     mostRestorativeDay: mostRestorativeDay
       ? {
           label: mostRestorativeDay.label,

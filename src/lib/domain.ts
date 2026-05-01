@@ -15,6 +15,7 @@ export type WeekEventType =
   | "admin"
   | "social"
   | "exercise"
+  | "rest"
   | "meal"
   | "appointment"
   | "commute"
@@ -24,6 +25,12 @@ export type WeekEventType =
   | "unknown";
 export type ClassificationConfidence = "high" | "medium" | "low";
 export type ClassificationSource = "keyword_rule";
+export type TrajectoryLoadCategory =
+  | "demand"
+  | "structured"
+  | "social"
+  | "support"
+  | "neutral";
 
 export interface WorkProfileSnapshot {
   deepWorkPreference: number;
@@ -127,15 +134,33 @@ export interface EphemeralGoogleEvent {
   allDay: boolean;
   durationMinutes: number;
   rawTitle: string;
+  rawDescription?: string | null;
+  sourceCalendarId?: string;
   sourceKey?: string;
 }
 
 export interface ClassifiedWeekEvent {
+  title?: string;
+  normalizedTitle?: string;
   startTime: Date;
   endTime: Date;
+  clippedStartTime?: Date;
+  clippedEndTime?: Date;
   allDay: boolean;
+  isAllDayLike?: boolean;
   durationMinutes: number;
+  rawDurationHours?: number;
+  countedDurationHours?: number;
   eventType: WeekEventType;
+  compositionCategory?: "work_class" | "meetings_structured" | "social" | "recovery_solo" | null;
+  recoveryCategory?: "exercise" | "social" | "care" | "rest" | "open" | null;
+  trajectoryLoadCategory?: TrajectoryLoadCategory;
+  matchedRule?: string;
+  sourceCalendar?: string;
+  sourceCalendarId?: string;
+  includeInComposition?: boolean;
+  includeInRecoveryIslands?: boolean;
+  includeInTrajectory?: boolean;
   confidence?: ClassificationConfidence;
   classificationSource?: ClassificationSource;
 }
@@ -162,7 +187,7 @@ export interface DailyLoadScore {
   date: Date;
   score: number;
   committedHours: number;
-  operatingMode: "absorb" | "protect" | "build" | "recover";
+  operatingMode: "open_capacity" | "follow_through" | "protected_work" | "fragmented" | "recover";
   modeTitle: string;
   modeMeaning: string;
   modeActions: string[];

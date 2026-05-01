@@ -2,6 +2,7 @@ import { addDays } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { CALENDAR_SYNC_DAYS } from "@/lib/constants";
 import { inferEventType } from "@/lib/calendar";
+import { getGoogleAccessToken } from "@/lib/google-calendar";
 import {
   getLegacyCognitiveProfileFallback,
   getPlanningReadyCognitiveProfile,
@@ -51,63 +52,6 @@ function normalizeProfile(profile: Awaited<ReturnType<typeof prisma.workProfile.
   }
 
   return getPlanningReadyCognitiveProfile(profile) ?? getLegacyCognitiveProfileFallback(profile);
-}
-
-async function refreshGoogleToken(accountId: string, refreshToken: string) {
-  const response = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      client_id: process.env.GOOGLE_CLIENT_ID ?? "",
-      client_secret: process.env.GOOGLE_CLIENT_SECRET ?? "",
-      grant_type: "refresh_token",
-      refresh_token: refreshToken,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error("Unable to refresh Google Calendar access token.");
-  }
-
-  const json = (await response.json()) as {
-    access_token: string;
-    expires_in: number;
-    refresh_token?: string;
-  };
-
-  await prisma.account.update({
-    where: { id: accountId },
-    data: {
-      access_token: json.access_token,
-      expires_at: Math.floor(Date.now() / 1000 + json.expires_in),
-      refresh_token: json.refresh_token ?? refreshToken,
-    },
-  });
-
-  return json.access_token;
-}
-
-async function getGoogleAccessToken(userId: string) {
-  const account = await prisma.account.findFirst({
-    where: {
-      userId,
-      provider: "google",
-    },
-  });
-
-  if (!account?.access_token) {
-    throw new Error("Google Calendar is not connected yet.");
-  }
-
-  const expiresSoon = Boolean(account.expires_at && account.expires_at < Date.now() / 1000 + 60);
-
-  if (expiresSoon && account.refresh_token) {
-    return refreshGoogleToken(account.id, account.refresh_token);
-  }
-
-  return account.access_token;
 }
 
 function buildCalendarRange() {

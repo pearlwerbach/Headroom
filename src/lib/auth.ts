@@ -6,6 +6,9 @@ import GoogleProvider from "next-auth/providers/google";
 import { DEMO_USER_EMAIL, ensureDemoUser } from "@/lib/demo-user";
 import { prisma } from "@/lib/prisma";
 
+const GOOGLE_CALENDAR_SCOPE =
+  "openid email profile https://www.googleapis.com/auth/calendar.readonly";
+
 process.env.NEXTAUTH_SECRET ??= process.env.AUTH_SECRET;
 process.env.NEXTAUTH_URL ??= process.env.AUTH_URL;
 
@@ -79,6 +82,60 @@ export function getAuthModeConfig(): AuthModeConfig {
   };
 }
 
+async function preserveGoogleRefreshToken(account: {
+  provider?: string | null;
+  providerAccountId?: string | null;
+  refresh_token?: string | null;
+  access_token?: string | null;
+  expires_at?: number | null;
+  scope?: string | null;
+  token_type?: string | null;
+  id_token?: string | null;
+  session_state?: string | null;
+}) {
+  if (account.provider !== "google" || !account.providerAccountId) {
+    return;
+  }
+
+  const existing = await prisma.account.findUnique({
+    where: {
+      provider_providerAccountId: {
+        provider: "google",
+        providerAccountId: account.providerAccountId,
+      },
+    },
+    select: {
+      refresh_token: true,
+      access_token: true,
+      expires_at: true,
+      scope: true,
+      token_type: true,
+      id_token: true,
+      session_state: true,
+    },
+  });
+
+  if (!account.refresh_token && existing?.refresh_token) {
+    account.refresh_token = existing.refresh_token;
+  }
+
+  await prisma.account.updateMany({
+    where: {
+      provider: "google",
+      providerAccountId: account.providerAccountId,
+    },
+    data: {
+      refresh_token: account.refresh_token ?? existing?.refresh_token ?? null,
+      access_token: account.access_token ?? existing?.access_token ?? null,
+      expires_at: account.expires_at ?? existing?.expires_at ?? null,
+      scope: account.scope ?? existing?.scope ?? GOOGLE_CALENDAR_SCOPE,
+      token_type: account.token_type ?? existing?.token_type ?? null,
+      id_token: account.id_token ?? existing?.id_token ?? null,
+      session_state: account.session_state ?? existing?.session_state ?? null,
+    },
+  });
+}
+
 const authMode = getAuthModeConfig();
 const providers = [];
 
@@ -94,8 +151,7 @@ if (authMode.googleConfigured) {
           prompt: "consent",
           access_type: "offline",
           response_type: "code",
-          scope:
-            "openid email profile https://www.googleapis.com/auth/calendar.readonly",
+          scope: GOOGLE_CALENDAR_SCOPE,
         },
       },
     }),
@@ -132,12 +188,31 @@ export const authOptions: NextAuthOptions = {
   },
   providers,
   callbacks: {
+    async signIn({ account }) {
+      if (account?.provider === "google") {
+        await preserveGoogleRefreshToken(account);
+      }
+
+      return true;
+    },
     async session({ session, user }) {
       if (session.user) {
         session.user.id = user.id;
       }
 
       return session;
+    },
+  },
+  events: {
+    async signIn({ account }) {
+      if (account?.provider === "google") {
+        await preserveGoogleRefreshToken(account);
+      }
+    },
+    async linkAccount({ account }) {
+      if (account.provider === "google") {
+        await preserveGoogleRefreshToken(account);
+      }
     },
   },
 };
