@@ -80,8 +80,20 @@ describe("classifyWeekEventTitle", () => {
     expect(classifyWeekEventTitle("Upper Body + Core")).toMatchObject({
       eventType: "exercise",
     });
+    expect(classifyWeekEventTitle("Uppa body")).toMatchObject({
+      eventType: "exercise",
+    });
+    expect(classifyWeekEventTitle("Me-vening")).toMatchObject({
+      eventType: "rest",
+    });
     expect(classifyWeekEventTitle("Nap")).toMatchObject({
       eventType: "rest",
+    });
+    expect(classifyWeekEventTitle("Shabbat + jericho")).toMatchObject({
+      eventType: "social",
+    });
+    expect(classifyWeekEventTitle("BEACH DAY")).toMatchObject({
+      eventType: "social",
     });
     expect(classifyWeekEventTitle("Saisha and me adventure")).toMatchObject({
       eventType: "social",
@@ -93,6 +105,12 @@ describe("classifyWeekEventTitle", () => {
       eventType: "social",
     });
     expect(classifyWeekEventTitle("chelsea bday")).toMatchObject({
+      eventType: "social",
+    });
+    expect(classifyWeekEventTitle("Bagel making at Hillel yum")).toMatchObject({
+      eventType: "social",
+    });
+    expect(classifyWeekEventTitle("Laughing face at eon coffee")).toMatchObject({
       eventType: "social",
     });
     expect(classifyWeekEventTitle("do physics")).toMatchObject({
@@ -107,11 +125,38 @@ describe("classifyWeekEventTitle", () => {
     expect(classifyWeekEventTitle("N-ACT Supervision")).toMatchObject({
       eventType: "work_meeting",
     });
+    expect(classifyWeekEventTitle("Meet with Dr. Freeman")).toMatchObject({
+      eventType: "work_meeting",
+    });
+    expect(classifyWeekEventTitle("Entrepreneur mental health & wellbeing chat")).toMatchObject({
+      eventType: "work_meeting",
+    });
+    expect(classifyWeekEventTitle("Neuro honors symposium")).toMatchObject({
+      eventType: "work_meeting",
+    });
+    expect(classifyWeekEventTitle("Job Offer Negotiation 101")).toMatchObject({
+      eventType: "work_meeting",
+    });
+    expect(classifyWeekEventTitle("Bartending at cal climbing")).not.toMatchObject({
+      eventType: "commute",
+    });
     expect(classifyWeekEventTitle("PsySci Team Meet")).toMatchObject({
       eventType: "class",
     });
     expect(classifyWeekEventTitle("Benchmark practices")).toMatchObject({
       eventType: "work_meeting",
+    });
+    expect(classifyWeekEventTitle("Ninja warrior")).toMatchObject({
+      eventType: "exercise",
+    });
+    expect(classifyWeekEventTitle("Glade + Snacks + Thank Rav Maya")).not.toMatchObject({
+      eventType: "evaluative",
+    });
+    expect(classifyWeekEventTitle("coffee with Maya")).toMatchObject({
+      eventType: "social",
+    });
+    expect(classifyWeekEventTitle("quick coffee")).toMatchObject({
+      eventType: "meal",
     });
   });
 
@@ -161,6 +206,53 @@ describe("classifyWeekEventTitle", () => {
       countedDurationHours: 0,
       includeInComposition: false,
       includeInTrajectory: true,
+    });
+  });
+
+  it("keeps all-day study markers as work-class metadata with zero counted duration", () => {
+    const allDayMarker = buildCanonicalClassifiedWeekEvent({
+      title: "read all bio notes",
+      startTime: new Date("2026-04-24T00:00:00.000Z"),
+      endTime: new Date("2026-04-25T00:00:00.000Z"),
+      allDay: true,
+      rangeStart: new Date("2026-04-20T00:00:00.000Z"),
+      rangeEnd: new Date("2026-04-27T00:00:00.000Z"),
+    });
+
+    expect(allDayMarker).toMatchObject({
+      countedDurationHours: 0,
+      includeInComposition: false,
+      compositionCategory: "work_class",
+    });
+  });
+
+  it("keeps all-day social or care markers at zero counted duration while preserving metadata", () => {
+    const beachDay = buildCanonicalClassifiedWeekEvent({
+      title: "Beach Day",
+      startTime: new Date("2026-04-24T00:00:00.000Z"),
+      endTime: new Date("2026-04-25T00:00:00.000Z"),
+      allDay: true,
+      rangeStart: new Date("2026-04-20T00:00:00.000Z"),
+      rangeEnd: new Date("2026-04-27T00:00:00.000Z"),
+    });
+    const coffeeDay = buildCanonicalClassifiedWeekEvent({
+      title: "Laughing face at eon coffee",
+      startTime: new Date("2026-04-24T00:00:00.000Z"),
+      endTime: new Date("2026-04-25T00:00:00.000Z"),
+      allDay: true,
+      rangeStart: new Date("2026-04-20T00:00:00.000Z"),
+      rangeEnd: new Date("2026-04-27T00:00:00.000Z"),
+    });
+
+    expect(beachDay).toMatchObject({
+      eventType: "social",
+      countedDurationHours: 0,
+      includeInComposition: false,
+    });
+    expect(coffeeDay).toMatchObject({
+      eventType: "social",
+      countedDurationHours: 0,
+      includeInComposition: false,
     });
   });
 });

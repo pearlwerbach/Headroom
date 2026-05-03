@@ -103,8 +103,27 @@ function buildSegmentLayouts(segments: RecoveryIslandSegment[]) {
     evening: 300,
   };
 
-  const sorted = [...segments].sort((left, right) => left.startMinute - right.startMinute);
-  let previousRight = -2;
+  const priority = (segment: RecoveryIslandSegment) => {
+    if (segment.tone === "open") return 0;
+    if (segment.emphasis === "tentative") return 1;
+    return 2;
+  };
+
+  const sorted = [...segments].sort((left, right) => {
+    const leftPriority = priority(left);
+    const rightPriority = priority(right);
+
+    if (leftPriority !== rightPriority) {
+      return rightPriority - leftPriority;
+    }
+
+    if (left.startMinute !== right.startMinute) {
+      return left.startMinute - right.startMinute;
+    }
+
+    return (right.endMinute - right.startMinute) - (left.endMinute - left.startMinute);
+  });
+  const rowRightEdges = [-2, -2];
 
   return sorted.map((segment) => {
     const durationMinutes = Math.max(0, segment.endMinute - segment.startMinute);
@@ -117,28 +136,43 @@ function buildSegmentLayouts(segments: RecoveryIslandSegment[]) {
         ((segment.startMinute - zoneStartMinute[zone]) / zoneSpan[zone]) * 7,
       ),
     );
-    const widthPercent = Math.max(
-      15,
+    let widthPercent = Math.max(
+      14,
       Math.min(
-        23,
-        15 + ((durationMinutes / totalBandMinutes) * 100) * 0.45,
+        22,
+        14 + ((durationMinutes / totalBandMinutes) * 100) * 0.42,
       ),
     );
 
     let leftPercent = baseLeft + offsetWithinZone;
+    let rowIndex = 0;
+    const gap = 1.2;
 
-    if (leftPercent < previousRight + 1.5) {
-      leftPercent = previousRight + 1.5;
+    if (leftPercent < rowRightEdges[0] + gap) {
+      rowIndex = leftPercent >= rowRightEdges[1] + gap ? 1 : 0;
     }
 
-    leftPercent = Math.min(leftPercent, 100 - widthPercent - 1);
-    previousRight = leftPercent + widthPercent;
+    if (leftPercent < rowRightEdges[rowIndex] + gap) {
+      leftPercent = rowRightEdges[rowIndex] + gap;
+    }
+
+    if (leftPercent > 100 - widthPercent - 1) {
+      widthPercent = Math.max(12, 100 - leftPercent - 1);
+    }
+
+    if (leftPercent > 87) {
+      leftPercent = 87;
+      widthPercent = Math.min(widthPercent, 12);
+    }
+
+    rowRightEdges[rowIndex] = leftPercent + widthPercent;
 
     return {
       segment,
       style: {
         left: `${leftPercent}%`,
         width: `${widthPercent}%`,
+        top: rowIndex === 0 ? "5px" : "25px",
       },
     };
   });
@@ -195,7 +229,7 @@ export function RecoveryIslandsVisual({
                       {formatMinutesAsHours(day.totalRecoveryMinutes)}
                     </p>
                   </div>
-                  <div className="relative h-[50px] overflow-hidden rounded-full border border-[#C8D7CC] bg-[rgba(249,252,248,0.76)]">
+                  <div className="relative h-[46px] overflow-hidden rounded-full border border-[#C8D7CC] bg-[rgba(249,252,248,0.76)]">
                     <div className="pointer-events-none absolute inset-y-0 left-[31.25%] border-l border-dashed border-[#E2EBE1]" />
                     <div className="pointer-events-none absolute inset-y-0 left-[68.75%] border-l border-dashed border-[#E2EBE1]" />
 
@@ -207,7 +241,7 @@ export function RecoveryIslandsVisual({
                         <div
                           key={`${index}-${segment.tone}-${segment.startMinute}`}
                           className={cn(
-                            "absolute top-1/2 z-10 flex h-[42px] -translate-y-1/2 items-center gap-3 overflow-hidden rounded-[18px] px-4 shadow-[0_4px_10px_rgba(76,94,84,0.08)]",
+                            "absolute z-10 flex h-[18px] items-center gap-2 overflow-hidden rounded-[14px] px-3 shadow-[0_4px_10px_rgba(76,94,84,0.08)]",
                             SEGMENT_TONES[segment.tone],
                             segment.emphasis === "steady" && "shadow-[inset_0_0_0_1px_rgba(255,255,255,0.4)]",
                             segment.emphasis === "tentative" && "z-0 opacity-82 shadow-[0_3px_8px_rgba(76,94,84,0.04)]",
@@ -217,22 +251,23 @@ export function RecoveryIslandsVisual({
                           <span
                             className={cn(
                               "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
+                              "h-5 w-5",
                               SEGMENT_ICON_CHIP[segment.tone],
                             )}
                           >
-                            <Icon size={14} strokeWidth={2} />
+                            <Icon size={10} strokeWidth={2} />
                           </span>
                           {hasDetail ? (
                             <span className="min-w-0">
-                              <span className="block whitespace-nowrap text-[12.5px] font-medium leading-4 text-slate-800">
+                              <span className="block truncate whitespace-nowrap text-[11px] font-medium leading-3 text-slate-800">
                                 {segment.displayLabel}
                               </span>
-                              <span className="block whitespace-nowrap text-[10.5px] tracking-[0.01em] leading-4 text-slate-600">
+                              <span className="block truncate whitespace-nowrap text-[9px] tracking-[0.01em] leading-3 text-slate-600">
                                 {segment.timeLabel}
                               </span>
                             </span>
                           ) : segment.displayLabel ? (
-                            <span className="whitespace-nowrap text-[12.5px] font-medium leading-4 text-slate-800">
+                            <span className="truncate whitespace-nowrap text-[11px] font-medium leading-3 text-slate-800">
                               {segment.displayLabel}
                             </span>
                           ) : null}

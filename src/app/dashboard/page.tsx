@@ -200,33 +200,31 @@ function buildComposition(report: DashboardReport) {
         )
       : null;
 
-  return [
-    {
-      label: "Work / class",
-      minutes: aggregation?.totals.work_class ?? 0,
-      percent: toPercent(aggregation?.totals.work_class ?? 0, totalWeekMinutes),
-    },
-    {
-      label: "Meetings / structured",
-      minutes: aggregation?.totals.meetings_structured ?? 0,
-      percent: toPercent(aggregation?.totals.meetings_structured ?? 0, totalWeekMinutes),
-    },
-    {
-      label: "Social",
-      minutes: aggregation?.totals.social ?? 0,
-      percent: toPercent(aggregation?.totals.social ?? 0, totalWeekMinutes),
-    },
-    {
-      label: "Recovery / solo",
-      minutes: aggregation?.totals.recovery_solo ?? 0,
-      percent: toPercent(aggregation?.totals.recovery_solo ?? 0, totalWeekMinutes),
-    },
-    {
-      label: "Open time",
-      minutes: openMinutes,
-      percent: toPercent(openMinutes, totalWeekMinutes),
-    },
-  ];
+  return {
+    bars: [
+      {
+        label: "Work / class",
+        minutes: aggregation?.totals.work_class ?? 0,
+        percent: toPercent(aggregation?.totals.work_class ?? 0, totalWeekMinutes),
+      },
+      {
+        label: "Meetings / structured",
+        minutes: aggregation?.totals.meetings_structured ?? 0,
+        percent: toPercent(aggregation?.totals.meetings_structured ?? 0, totalWeekMinutes),
+      },
+      {
+        label: "Social",
+        minutes: aggregation?.totals.social ?? 0,
+        percent: toPercent(aggregation?.totals.social ?? 0, totalWeekMinutes),
+      },
+      {
+        label: "Recovery / solo",
+        minutes: aggregation?.totals.recovery_solo ?? 0,
+        percent: toPercent(aggregation?.totals.recovery_solo ?? 0, totalWeekMinutes),
+      },
+    ],
+    openMinutes,
+  };
 }
 
 function buildTrajectorySummary(
@@ -488,7 +486,6 @@ export default async function DashboardPage({
   const calendarStatusParam = typeof params?.calendar === "string" ? params.calendar : null;
   const state = await getWeekAnalysisDashboardState(user.id);
   const googleOAuthConfigured = isGoogleOAuthConfigured();
-  const debugMode = process.env.PROFILE_MODEL_DEBUG === "true" || process.env.NODE_ENV !== "production";
 
   if (!state.profile) {
     redirect("/onboarding");
@@ -528,7 +525,7 @@ export default async function DashboardPage({
     && state.normalizedProfile
     ? buildCognitiveLoadSummary(state.report.derivedMetrics, state.normalizedProfile)
     : null;
-  const composition = state.report ? buildComposition(state.report) : [];
+  const composition = state.report ? buildComposition(state.report) : { bars: [], openMinutes: 0 };
   const balanceFeedback =
     state.report && state.normalizedProfile
       ? buildPatternFeedback(state.report.derivedMetrics, state.normalizedProfile)
@@ -703,13 +700,13 @@ export default async function DashboardPage({
                 <div />
               )}
 
-              {composition.length > 0 ? (
+              {composition.bars.length > 0 ? (
                 <section className="rounded-[32px] border border-[#E3E6EA] bg-[#EEF1F4] px-7 py-6 shadow-[var(--surface-shadow)] backdrop-blur">
                   <h2 className="font-serif text-[2rem] leading-tight text-slate-950">
                     Week composition
                   </h2>
                   <div className="mt-5 space-y-4">
-                    {composition.map((item) => (
+                    {composition.bars.map((item) => (
                       <article key={item.label} className="space-y-2.5">
                         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-4">
                           <p className="text-sm font-semibold text-slate-900">{item.label}</p>
@@ -726,6 +723,9 @@ export default async function DashboardPage({
                       </article>
                     ))}
                   </div>
+                  <p className="mt-5 text-sm leading-6 text-slate-600">
+                    Open capacity: <span className="font-medium text-slate-800">{formatMinutesAsHours(composition.openMinutes)}</span> across the week
+                  </p>
                 </section>
               ) : (
                 <div />
@@ -861,48 +861,6 @@ export default async function DashboardPage({
           </section>
         )}
 
-        {debugMode && state.report ? (
-          <section className="rounded-[28px] border border-[#E8E2DB] bg-white p-6 shadow-[var(--surface-shadow)] backdrop-blur">
-            <h2 className="font-serif text-2xl leading-tight text-slate-900">Debug: classified events</h2>
-            <div className="mt-4 overflow-x-auto">
-              <table className="min-w-full text-left text-sm text-slate-700">
-                <thead className="text-xs uppercase tracking-[0.14em] text-slate-500">
-                  <tr>
-                    <th className="pb-3 pr-4">Title</th>
-                    <th className="pb-3 pr-4">Raw h</th>
-                    <th className="pb-3 pr-4">Counted h</th>
-                    <th className="pb-3 pr-4">All-day</th>
-                    <th className="pb-3 pr-4">Composition</th>
-                    <th className="pb-3 pr-4">Recovery</th>
-                    <th className="pb-3 pr-4">Trajectory</th>
-                    <th className="pb-3 pr-4">Flags</th>
-                    <th className="pb-3">Rule</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {state.report.classifiedEvents.map((event) => (
-                    <tr key={`${event.title}-${event.startTime.toISOString()}`} className="border-t border-[#EEE7DF] align-top">
-                      <td className="py-3 pr-4">
-                        <div className="font-medium text-slate-900">{event.title}</div>
-                        <div className="text-xs text-slate-500">{event.sourceCalendar}</div>
-                      </td>
-                      <td className="py-3 pr-4 tabular-nums">{(event.rawDurationHours ?? event.durationMinutes / 60).toFixed(2)}</td>
-                      <td className="py-3 pr-4 tabular-nums">{(event.countedDurationHours ?? event.durationMinutes / 60).toFixed(2)}</td>
-                      <td className="py-3 pr-4">{event.isAllDayLike ? "yes" : "no"}</td>
-                      <td className="py-3 pr-4">{event.compositionCategory ?? "excluded"}</td>
-                      <td className="py-3 pr-4">{event.recoveryCategory ?? "excluded"}</td>
-                      <td className="py-3 pr-4">{event.trajectoryLoadCategory}</td>
-                      <td className="py-3 pr-4 text-xs text-slate-500">
-                        C:{event.includeInComposition ? "Y" : "N"} R:{event.includeInRecoveryIslands ? "Y" : "N"} T:{event.includeInTrajectory ? "Y" : "N"}
-                      </td>
-                      <td className="py-3 text-xs text-slate-500">{event.matchedRule ?? "no_match"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        ) : null}
       </main>
     </AppShell>
   );

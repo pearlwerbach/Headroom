@@ -64,6 +64,10 @@ function containsWord(text: string, value: string) {
   return text.split(" ").includes(value);
 }
 
+function containsWordAny(text: string, values: string[]) {
+  return values.some((value) => containsWord(text, value));
+}
+
 export function normalizeEventText(text: string) {
   return text
     .toLowerCase()
@@ -91,7 +95,6 @@ const SOCIAL_SUPPORT_MARKERS = [
   "family",
   "roommate",
   "partner",
-  "with ",
   "support group",
   "catch up",
   "hang",
@@ -104,6 +107,48 @@ const SOCIAL_SUPPORT_MARKERS = [
   "concert",
   "bday",
   "birthday",
+  "shabbat",
+  "hillel",
+  "beach day",
+  "bagel making",
+  "coffee at",
+  "launch",
+];
+
+const MEDICAL_OR_BODY_CARE_MARKERS = [
+  "doctor",
+  "doctor appt",
+  "dentist",
+  "orthodontist",
+  "therapy",
+  "therapist",
+  "psychiatrist",
+  "meds",
+  "medication",
+  "pharmacy",
+  "pt",
+  "physical therapy",
+  "wrist pt",
+  "haircut",
+  "nails",
+  "self care",
+  "care",
+];
+
+const EXCLUDE_NEUTRAL_MARKERS = [
+  "no actives",
+  "holiday",
+  "mother s day",
+  "formal classes end",
+  "last day of instruction",
+  "reminder",
+  "pending tasks",
+  "water the plants",
+  "task sum",
+  "birthday reminder",
+  "all day",
+  "maybe",
+  "tentative",
 ];
 
 const EXPLICIT_REST_RULES: ClassificationRule[] = [
@@ -117,6 +162,14 @@ const EXPLICIT_REST_RULES: ClassificationRule[] = [
         "take a break",
         "rest day",
         "reading for fun",
+        "me vening",
+        "me time",
+        "evening off",
+        "night off",
+        "no more work",
+        "slow day",
+        "solo time",
+        "alone time",
       ]),
   },
   {
@@ -131,9 +184,40 @@ const EXPLICIT_REST_RULES: ClassificationRule[] = [
         "break",
         "reset",
         "decompress",
+        "decompression",
         "recharge",
+        "recover",
+        "recovery",
+        "pause",
         "bath",
+        "slow morning",
+        "sleep in",
+        "meditate",
+        "meditation",
+        "breathwork",
+        "journal",
+        "journaling",
+        "chill",
+        "relax",
+        "relaxing",
         "unwind",
+      ]),
+  },
+  {
+    eventType: "rest",
+    confidence: "low",
+    matchedRule: "open_buffer_keyword",
+    matches: ({ combinedText }) =>
+      containsAny(combinedText, [
+        "buffer",
+        "open time",
+        "free time",
+        "unscheduled",
+        "blank space",
+        "catch up block",
+        "flex block",
+        "floating block",
+        "breathing room",
       ]),
   },
 ];
@@ -147,25 +231,60 @@ const EXERCISE_RULES: ClassificationRule[] = [
       containsAny(combinedText, [
         "gym",
         "workout",
+        "work out",
         "run",
+        "running",
         "walk",
+        "walking",
         "climbing",
         "climb",
         "volume day climb",
+        "volume day",
+        "limit climbing",
         "climbing practice",
         "cal climbing practice",
+        "cal climbing",
+        "bouldering",
+        "uppa body",
         "yoga",
+        "restorative yoga",
         "pilates",
         "stretch",
+        "stretching",
+        "ninja warrior",
         "legs",
+        "lower body",
+        "leg day",
         "upper body",
         "core",
+        "abs",
+        "cardio",
         "lifting",
+        "lift",
         "hike",
+        "hiking",
         "movement",
         "exercise",
         "training",
+        "mobility",
+        "swim",
+        "swimming",
+        "bike",
+        "biking",
+        "cycle",
+        "cycling",
+        "dance",
+        "fitness",
+        "stadium fitness",
       ]),
+  },
+  {
+    eventType: "exercise",
+    confidence: "medium",
+    matchedRule: "practice_sport_phrase",
+    matches: ({ combinedText }) =>
+      containsWord(combinedText, "practice") &&
+      containsAny(combinedText, ["climb", "climbing", "gym", "sport", "workout", "cal climbing"]),
   },
 ];
 
@@ -175,6 +294,7 @@ const MEAL_CARE_RULES: ClassificationRule[] = [
     confidence: "medium",
     matchedRule: "meal_keyword",
     matches: ({ combinedText }) =>
+      !containsAny(combinedText, ["bagel making", "coffee at", "coffee with", "eon coffee"]) &&
       containsAny(combinedText, [
         "lunch",
         "lunch break",
@@ -187,8 +307,16 @@ const MEAL_CARE_RULES: ClassificationRule[] = [
         "food",
         "brunch",
         "meal prep",
+        "prep food",
         "grab dinner",
         "quick brekky",
+        "coffee",
+        "tea",
+        "teatime",
+        "boba",
+        "smoothie",
+        "snacks",
+        "bagel",
       ]),
   },
   {
@@ -201,14 +329,27 @@ const MEAL_CARE_RULES: ClassificationRule[] = [
         "skincare",
         "doctor",
         "therapy",
+        "therapist",
+        "psychiatrist",
         "pt",
         "physical therapy",
         "wrist pt",
+        "dentist",
+        "orthodontist",
+        "meds",
         "medication",
         "haircut",
+        "nails",
         "laundry",
         "cook",
         "cooking",
+        "clean room",
+        "cleaning",
+        "sleep in",
+        "slow morning",
+        "home reset",
+        "self care",
+        "care",
       ]),
   },
   {
@@ -227,7 +368,9 @@ const MEAL_CARE_RULES: ClassificationRule[] = [
     confidence: "low",
     matchedRule: "coffee_nourishment_keyword",
     matches: ({ combinedText }) =>
-      containsWord(combinedText, "coffee") && !containsAny(combinedText, SOCIAL_SUPPORT_MARKERS),
+      containsWord(combinedText, "coffee") &&
+      !containsAny(combinedText, ["coffee at", "coffee with", "eon coffee"]) &&
+      !containsAny(combinedText, SOCIAL_SUPPORT_MARKERS),
   },
 ];
 
@@ -245,10 +388,24 @@ const SOCIAL_RULES: ClassificationRule[] = [
         "partner time",
         "support group",
         "coffee with",
+        "tea with",
+        "dinner with",
+        "lunch with",
+        "brunch with",
         "with sheri",
         "board game",
+        "game night",
         "wine night",
-      ]),
+        "shabbat",
+        "beach day",
+        "beach",
+        "bagel making",
+        "coffee at",
+        "eon coffee",
+        "party",
+        "event with",
+      ]) ||
+      (containsWord(combinedText, "coffee") && containsWord(combinedText, "at")),
   },
   {
     eventType: "social",
@@ -265,43 +422,58 @@ const SOCIAL_RULES: ClassificationRule[] = [
         "drinks",
         "social",
         "concert",
+        "show",
+        "movie",
         "adventure",
+        "hillel",
+        "launch",
+        "opening",
+        "community",
+        "gathering",
+        "club",
+        "clubbing",
+        "bar",
+        "thunderdome",
+        "rites of spring",
+        "saisha",
+        "lana",
+        "everett",
+        "maya",
+        "sheri",
       ]),
   },
 ];
 
-const WORKLIKE_RULES: ClassificationRule[] = [
+const EXCLUDE_RULES: ClassificationRule[] = [
   {
-    eventType: "travel",
+    eventType: "unknown",
     confidence: "medium",
-    matchedRule: "travel_keyword",
-    matches: ({ combinedText }) => containsAny(combinedText, ["flight", "airport", "hotel", "travel"]),
+    matchedRule: "exclude_neutral_keyword",
+    matches: ({ combinedText }) => containsAny(combinedText, EXCLUDE_NEUTRAL_MARKERS),
   },
-  {
-    eventType: "commute",
-    confidence: "medium",
-    matchedRule: "commute_keyword",
-    matches: ({ combinedText }) =>
-      containsAny(combinedText, ["commute", "drive", "bart", "train", "bus", "transit", "shuttle"]),
-  },
+];
+
+const ACADEMIC_RULES: ClassificationRule[] = [
   {
     eventType: "evaluative",
     confidence: "high",
     matchedRule: "evaluative_phrase",
     matches: ({ combinedText }) =>
-      containsAny(combinedText, ["final exam", "midterm exam", "take home final", "oral exam"]),
+      containsAny(combinedText, ["final exam", "midterm exam", "take home final", "oral exam", "practice exam"]),
   },
   {
     eventType: "evaluative",
     confidence: "medium",
     matchedRule: "evaluative_keyword",
-    matches: ({ combinedText }) => containsAny(combinedText, ["exam", "midterm", "final", "finals", "quiz", "test"]),
+    matches: ({ combinedText }) =>
+      containsWordAny(combinedText, ["exam", "midterm", "final", "finals", "quiz", "test", "assessment"]),
   },
   {
     eventType: "class",
     confidence: "medium",
     matchedRule: "class_keyword",
-    matches: ({ titleAndCalendar }) =>
+    matches: ({ titleAndCalendar, combinedText }) =>
+      !containsAny(combinedText, ["symposium", "talk", "chat", "workshop", "panel", "info session"]) &&
       containsAny(titleAndCalendar, [
         "class",
         "lecture",
@@ -312,34 +484,48 @@ const WORKLIKE_RULES: ClassificationRule[] = [
         "recitation",
         "office hours",
         "ohs",
+        "problem set",
+        "pset",
+        "assignment",
+        "paper",
+        "essay",
+        "report",
+        "writeup",
+        "prelab",
+        "postlab",
+        "class notes",
+        "practice questions",
+        "drill",
+        "tutor",
+        "tutoring",
+        "prep",
         "physics",
+        "bio",
+        "bio 1a",
+        "bio 1al",
+        "data",
+        "data 89",
+        "data 8",
+        "chem",
+        "math",
+        "neuro",
+        "psych",
+        "gws",
         "physicsss",
         "psysci",
-      ]),
-  },
-  {
-    eventType: "work_meeting",
-    confidence: "high",
-    matchedRule: "work_meeting_phrase",
-    matches: ({ combinedText, normalizedTitle }) =>
-      normalizedTitle === "planning meeting" ||
-      containsAny(combinedText, ["one on one", "1 1", "check in", "check-in", "staff meeting", "planning meeting"]),
-  },
-  {
-    eventType: "work_meeting",
-    confidence: "medium",
-    matchedRule: "work_meeting_keyword",
-    matches: ({ titleAndCalendar }) =>
-      containsAny(titleAndCalendar, [
-        "meeting",
-        "sync",
-        "standup",
-        "presentation",
-        "committee",
-        "supervision",
-        "team meet",
-        "benchmark practice",
-        "benchmark practices",
+        "do physics",
+        "manuscript",
+        "poster",
+        "urap",
+        "research",
+        "data supervision",
+        "data meeting",
+        "redcap",
+        "qc",
+        "analysis",
+        "coding",
+        "debug",
+        "conference abstract",
       ]),
   },
   {
@@ -359,14 +545,42 @@ const WORKLIKE_RULES: ClassificationRule[] = [
         "read",
         "reading",
         "readings",
+        "problem set",
+        "pset",
+        "practice questions",
+        "notes",
+        "class notes",
       ]),
   },
   {
     eventType: "deep_work",
     confidence: "medium",
     matchedRule: "deep_work_keyword",
-    matches: ({ titleAndCalendar }) =>
-      containsAny(titleAndCalendar, ["project work", "deep work", "write", "writing", "research", "draft", "focus"]),
+    matches: ({ titleAndCalendar, combinedText }) =>
+      !containsAny(combinedText, ["meeting", "meet", "symposium", "talk", "chat", "workshop", "panel", "session"]) &&
+      containsAny(titleAndCalendar, [
+        "project work",
+        "deep work",
+        "write",
+        "writing",
+        "research",
+        "draft",
+        "focus",
+        "project",
+        "proposal",
+        "presentation",
+        "slides",
+        "manuscript",
+        "poster",
+        "analysis",
+        "coding",
+        "debug",
+        "application",
+        "resume",
+        "cv",
+        "cover letter",
+        "interview prep",
+      ]),
   },
   {
     eventType: "admin",
@@ -374,13 +588,116 @@ const WORKLIKE_RULES: ClassificationRule[] = [
     matchedRule: "admin_keyword",
     matches: ({ titleAndCalendar, normalizedTitle }) =>
       normalizedTitle === "planning" ||
-      containsAny(titleAndCalendar, ["admin", "email", "inbox", "paperwork", "forms", "registration"]),
+      containsAny(titleAndCalendar, [
+        "admin",
+        "email",
+        "emails",
+        "inbox",
+        "paperwork",
+        "forms",
+        "registration",
+        "send out",
+      ]),
+  },
+];
+
+const STRUCTURED_RULES: ClassificationRule[] = [
+  {
+    eventType: "work_meeting",
+    confidence: "high",
+    matchedRule: "meeting_phrase",
+    matches: ({ combinedText }) =>
+      containsAny(combinedText, [
+        "meet with",
+        "job offer negotiation",
+        "phone call",
+        "check in",
+        "check in",
+      ]),
+  },
+  {
+    eventType: "work_meeting",
+    confidence: "high",
+    matchedRule: "work_meeting_phrase",
+    matches: ({ combinedText, normalizedTitle }) =>
+      normalizedTitle === "planning meeting" ||
+      containsAny(combinedText, [
+        "one on one",
+        "1 1",
+        "check in",
+        "check-in",
+        "staff meeting",
+        "planning meeting",
+        "office hours",
+        "lab meeting",
+        "info session",
+      ]),
+  },
+  {
+    eventType: "work_meeting",
+    confidence: "medium",
+    matchedRule: "work_meeting_keyword",
+    matches: ({ titleAndCalendar }) =>
+      containsAny(titleAndCalendar, [
+        "meeting",
+        "meet",
+        "sync",
+        "standup",
+        "committee",
+        "supervision",
+        "team meet",
+        "benchmark practice",
+        "benchmark practices",
+        "symposium",
+        "talk",
+        "chat",
+        "seminar",
+        "workshop",
+        "lecture",
+        "negotiation",
+        "call",
+        "zoom",
+        "consult",
+        "consultation",
+        "interview",
+        "orientation",
+        "training",
+        "info session",
+        "session",
+        "mandatory",
+        "must attend",
+        "must go",
+        "shift",
+        "work shift",
+        "bartending",
+        "volunteer",
+        "volunteering",
+        "tabling",
+        "table",
+        "event",
+      ]),
   },
   {
     eventType: "appointment",
     confidence: "medium",
     matchedRule: "appointment_keyword",
-    matches: ({ titleAndCalendar }) => containsAny(titleAndCalendar, ["advising", "appointment", "consultation"]),
+    matches: ({ titleAndCalendar, combinedText }) =>
+      !containsAny(combinedText, MEDICAL_OR_BODY_CARE_MARKERS) &&
+      containsAny(titleAndCalendar, ["advising", "appointment", "appt", "consultation"]),
+  },
+  {
+    eventType: "travel",
+    confidence: "medium",
+    matchedRule: "travel_keyword",
+    matches: ({ combinedText }) => containsAny(combinedText, ["flight", "airport", "hotel", "travel"]),
+  },
+  {
+    eventType: "commute",
+    confidence: "medium",
+    matchedRule: "commute_keyword",
+    matches: ({ combinedText }) =>
+      containsWordAny(combinedText, ["commute", "drive", "bart", "train", "bus", "flight", "airport", "uber", "lyft", "travel"]) ||
+      containsAny(combinedText, ["walk to", "drive back"]),
   },
 ];
 
@@ -397,7 +714,31 @@ export function classifyWeekEvent(input: WeekEventClassificationInput): Classifi
     };
   }
 
-  for (const rule of WORKLIKE_RULES) {
+  for (const rule of EXCLUDE_RULES) {
+    if (rule.matches(context)) {
+      return {
+        eventType: rule.eventType,
+        confidence: rule.confidence,
+        classificationSource: "keyword_rule",
+        matchedRule: rule.matchedRule,
+        normalizedTitle: context.normalizedTitle,
+      };
+    }
+  }
+
+  for (const rule of ACADEMIC_RULES) {
+    if (rule.matches(context)) {
+      return {
+        eventType: rule.eventType,
+        confidence: rule.confidence,
+        classificationSource: "keyword_rule",
+        matchedRule: rule.matchedRule,
+        normalizedTitle: context.normalizedTitle,
+      };
+    }
+  }
+
+  for (const rule of STRUCTURED_RULES) {
     if (rule.matches(context)) {
       return {
         eventType: rule.eventType,
@@ -421,7 +762,7 @@ export function classifyWeekEvent(input: WeekEventClassificationInput): Classifi
     }
   }
 
-  for (const rule of EXPLICIT_REST_RULES) {
+  for (const rule of MEAL_CARE_RULES) {
     if (rule.matches(context)) {
       return {
         eventType: rule.eventType,
@@ -433,7 +774,7 @@ export function classifyWeekEvent(input: WeekEventClassificationInput): Classifi
     }
   }
 
-  for (const rule of MEAL_CARE_RULES) {
+  for (const rule of EXPLICIT_REST_RULES) {
     if (rule.matches(context)) {
       return {
         eventType: rule.eventType,
