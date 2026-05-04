@@ -4,7 +4,7 @@ import { getServerSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import { SITE_COPY } from "@/lib/copy";
-import { DEMO_USER_EMAIL, ensureDemoUser } from "@/lib/demo-user";
+import { DEMO_USER_EMAIL, ensureAssessmentUser, ensureDemoUser } from "@/lib/demo-user";
 import { prisma } from "@/lib/prisma";
 
 const GOOGLE_CALENDAR_SCOPE =
@@ -59,31 +59,121 @@ export function isLocalDevAuthEnabled() {
 export interface AuthModeConfig {
   googleConfigured: boolean;
   localDemoEnabled: boolean;
-  effectiveProvider: "google" | "demo";
+  effectiveProvider: "assessment" | "google" | "demo";
   ctaLabel: string;
   ctaHref?: string;
 }
 
-// Keep provider registration and landing-page CTA selection derived from the same source of truth.
-// The homepage bug came from deciding UI mode from `googleConfigured` alone instead of the combined auth mode.
+export type GoogleAuthStartIssueCode =
+  | "google_provider_unconfigured"
+  | "nextauth_secret_missing"
+  | "database_url_missing"
+  | "nextauth_url_missing"
+  | "nextauth_url_mismatch";
+
+export interface AuthEnvironmentDiagnostics {
+  configuredOrigin: string | null;
+  requestOrigin: string | null;
+  nextAuthUrl: string | null;
+  authUrl: string | null;
+  vercelUrl: string | null;
+  vercelProjectProductionUrl: string | null;
+  hasNextAuthSecret: boolean;
+  hasDatabaseUrl: boolean;
+  hasGoogleClientId: boolean;
+  hasGoogleClientSecret: boolean;
+}
+
 export function getAuthModeConfig(): AuthModeConfig {
   const googleConfigured = isGoogleOAuthConfigured();
   const localDemoEnabled = isLocalDevAuthEnabled();
-  // In local development, the app should open into the in-product assessment flow first.
-  // Google is treated as an optional calendar connection later in Settings, not the primary
-  // landing-page gate.
-  const effectiveProvider = localDemoEnabled ? "demo" : "google";
+  const effectiveProvider = "assessment";
 
   return {
     googleConfigured,
     localDemoEnabled,
     effectiveProvider,
-    ctaLabel:
-      effectiveProvider === "google"
-        ? SITE_COPY.shared.COPY_SHARED_AUTH_SIGNIN_GOOGLE_01
-        : SITE_COPY.shared.COPY_SHARED_AUTH_SIGNIN_DEMO_01,
-    ctaHref: effectiveProvider === "demo" ? "/onboarding?edit=1" : undefined,
+    ctaLabel: SITE_COPY.shared.COPY_SHARED_AUTH_SIGNIN_DEMO_01,
+    ctaHref: "/onboarding?edit=1",
   };
+}
+
+function normalizeOrigin(value?: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeMaybeOriginHost(value?: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = value.startsWith("http://") || value.startsWith("https://")
+    ? value
+    : `https://${value}`;
+
+  return normalizeOrigin(normalized);
+}
+
+export function getAuthEnvironmentDiagnostics(options?: {
+  requestUrl?: string;
+}): AuthEnvironmentDiagnostics {
+  const nextAuthUrl = process.env.NEXTAUTH_URL ?? null;
+  const authUrl = process.env.AUTH_URL ?? null;
+  const vercelUrl = process.env.VERCEL_URL ?? null;
+  const vercelProjectProductionUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL ?? null;
+
+  return {
+    configuredOrigin:
+      normalizeOrigin(nextAuthUrl) ??
+      normalizeOrigin(authUrl) ??
+      normalizeMaybeOriginHost(vercelProjectProductionUrl) ??
+      normalizeMaybeOriginHost(vercelUrl),
+    requestOrigin: normalizeOrigin(options?.requestUrl),
+    nextAuthUrl,
+    authUrl,
+    vercelUrl,
+    vercelProjectProductionUrl,
+    hasNextAuthSecret: !isPlaceholder(process.env.NEXTAUTH_SECRET),
+    hasDatabaseUrl: !isPlaceholder(process.env.DATABASE_URL),
+    hasGoogleClientId: hasGoogleClientIdShape(process.env.GOOGLE_CLIENT_ID),
+    hasGoogleClientSecret: !isPlaceholder(process.env.GOOGLE_CLIENT_SECRET),
+  };
+}
+
+export function getGoogleAuthStartIssue(options?: {
+  requestUrl?: string;
+}): GoogleAuthStartIssueCode | null {
+  if (!isGoogleOAuthConfigured()) {
+    return "google_provider_unconfigured";
+  }
+
+  if (isPlaceholder(process.env.NEXTAUTH_SECRET)) {
+    return "nextauth_secret_missing";
+  }
+
+  if (isPlaceholder(process.env.DATABASE_URL)) {
+    return "database_url_missing";
+  }
+
+  const { configuredOrigin, requestOrigin } = getAuthEnvironmentDiagnostics(options);
+
+  if (!configuredOrigin && !requestOrigin) {
+    return "nextauth_url_missing";
+  }
+
+  if (configuredOrigin && requestOrigin && configuredOrigin !== requestOrigin) {
+    return "nextauth_url_mismatch";
+  }
+
+  return null;
 }
 
 async function preserveGoogleRefreshToken(account: {
@@ -143,6 +233,23 @@ async function preserveGoogleRefreshToken(account: {
 const authMode = getAuthModeConfig();
 const providers = [];
 
+providers.push(
+  CredentialsProvider({
+    id: "assessment",
+    name: "Assessment",
+    credentials: {},
+    async authorize() {
+      const user = await ensureAssessmentUser();
+
+      return {
+        id: user.id,
+        email: user.email ?? undefined,
+        name: user.name ?? "Student planner",
+      };
+    },
+  }),
+);
+
 if (authMode.googleConfigured) {
   providers.push(
     GoogleProvider({
@@ -185,12 +292,20 @@ export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   secret: process.env.NEXTAUTH_SECRET,
   session: {
-    strategy: "database",
+    strategy: "jwt",
   },
   pages: {
     signIn: "/",
   },
   providers,
+  logger: {
+    error(code, metadata) {
+      console.error("NextAuth error", { code, metadata });
+    },
+    warn(code) {
+      console.warn("NextAuth warning", { code });
+    },
+  },
   callbacks: {
     async signIn({ account }) {
       if (account?.provider === "google") {
@@ -199,9 +314,19 @@ export const authOptions: NextAuthOptions = {
 
       return true;
     },
-    async session({ session, user }) {
+    async jwt({ token, user }) {
+      if (user?.id) {
+        token.id = user.id;
+      }
+
+      return token;
+    },
+    async session({ session, token, user }) {
       if (session.user) {
-        session.user.id = user.id;
+        session.user.id =
+          (typeof token.id === "string" && token.id) ||
+          user?.id ||
+          session.user.id;
       }
 
       return session;

@@ -1,4 +1,4 @@
-export const APP_NAME = "HEADROOM";
+export const APP_NAME = "Headroom";
 export const QUIZ_VERSION = "explicit-question-set-v1";
 export const PROFILE_MODEL_VERSION = "v1";
 export const DEFAULT_WAKE_HOUR = 7;

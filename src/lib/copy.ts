@@ -9,7 +9,7 @@ export const SITE_COPY = {
     COPY_SHARED_FALLBACK_USERNAME_01: "Student planner",
     COPY_SHARED_AUTH_SIGNOUT_01: "Sign out",
     COPY_SHARED_AUTH_SIGNIN_GOOGLE_01: "Continue with Google",
-    COPY_SHARED_AUTH_SIGNIN_DEMO_01: "Start assessment",
+    COPY_SHARED_AUTH_SIGNIN_DEMO_01: "Start your profile",
     COPY_SHARED_STATUS_CONNECTED_01: "Connected",
     COPY_SHARED_STATUS_RECONNECT_01: "Reconnect needed",
     COPY_SHARED_STATUS_MISSING_ACCESS_01: "Calendar access missing",
@@ -34,27 +34,27 @@ export const SITE_COPY = {
     COPY_LANDING_SIGNAL_BODY_01:
       "Based on a 95-minute uninterrupted block, earlier ambiguity protection, and the fact that later windows are more fragmented.",
     COPY_LANDING_FEATURES_HEADLINE_01:
-      "Understand your cognitive profile, map your week to it, and allocate work with intention.",
+      "Smoother weeks in three steps",
     COPY_LANDING_FEATURES: [
       {
-        title: "1. Identify your cognitive subtype",
+        title: "Identify your cognitive subtype",
         body: "Take a short assessment of focus, overload, and recovery patterns.",
       },
       {
-        title: "2. Align your schedule with your profile",
+        title: "Align your schedule with your profile",
         body: "See your week through your subtype.",
       },
       {
-        title: "3. Plan your weeks intelligently",
+        title: "Plan your weeks intelligently",
         body: "Find deep-work windows and overload warnings before they hit you",
       },
     ] as const,
-    COPY_LANDING_INPUTS_HEADLINE_01: "Four inputs shape how Headroom reads each week.",
+    COPY_LANDING_INPUTS_HEADLINE_01: "Headroom reads your week through four signals:",
     COPY_LANDING_INPUT_LABELS: [
       "Work & Recovery Profile",
       "Calendar Structure",
       "Task Demands",
-      "Quality and Duration of Recovery Blocks",
+      "Recovery Quality",
     ] as const,
   },
   onboarding: {

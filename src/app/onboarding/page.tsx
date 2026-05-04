@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
+import { AssessmentAccessGate } from "@/components/assessment-access-gate";
 import { AppShell } from "@/components/app-shell";
 import { OnboardingQuiz } from "@/components/onboarding-quiz";
 import { ProfileReport } from "@/components/profile-report";
+import { getServerAuthSession, isGoogleOAuthConfigured } from "@/lib/auth";
 import { SITE_COPY } from "@/lib/copy";
-import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 
 export default async function OnboardingPage({
@@ -13,19 +14,30 @@ export default async function OnboardingPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   noStore();
-  const user = await requireUser();
+  const session = await getServerAuthSession();
+  const user = session?.user ?? null;
   const params = searchParams ? await searchParams : undefined;
   const editMode = params?.edit === "1";
   const completeMode = params?.complete === "1";
   const returnTo = params?.returnTo === "settings" ? "settings" : "onboarding";
-  const profile = await prisma.workProfile.findFirst({
-    where: { userId: user.id },
-    orderBy: { updatedAt: "desc" },
-  });
+  const [profile, googleAccount] = user?.id
+    ? await Promise.all([
+        prisma.workProfile.findFirst({
+          where: { userId: user.id },
+          orderBy: { updatedAt: "desc" },
+        }),
+        prisma.account.findFirst({
+          where: { userId: user.id, provider: "google" },
+          select: { id: true },
+        }),
+      ])
+    : [null, null];
+  const showConnectGoogleAction = !googleAccount;
+  const googleOAuthConfigured = isGoogleOAuthConfigured();
 
   return (
     <>
-      {profile && !editMode ? (
+      {user && profile && !editMode ? (
         <AppShell
           heading="Work & Recovery Profile"
           userName={user.name}
@@ -42,17 +54,28 @@ export default async function OnboardingPage({
                 profile={profile}
                 actions={
                   <>
+                    {showConnectGoogleAction ? (
+                      <Link
+                        href="/settings"
+                        className="theme-button-primary inline-flex rounded-full px-5 py-3 text-sm font-semibold transition hover:-translate-y-0.5"
+                      >
+                        Connect Google Calendar to map this profile onto your real week.
+                      </Link>
+                    ) : (
+                      <Link
+                        href="/dashboard"
+                        className="theme-button-primary inline-flex rounded-full px-5 py-3 text-sm font-semibold transition hover:-translate-y-0.5"
+                      >
+                        {SITE_COPY.onboarding.COPY_ONBOARDING_PROFILE_ACTION_01}
+                      </Link>
+                    )}
                     <Link
-                      href="/dashboard"
-                      className="theme-button-primary inline-flex rounded-full px-5 py-3 text-sm font-semibold transition hover:-translate-y-0.5"
-                    >
-                      {SITE_COPY.onboarding.COPY_ONBOARDING_PROFILE_ACTION_01}
-                    </Link>
-                    <Link
-                      href="/settings"
+                      href={showConnectGoogleAction && googleOAuthConfigured ? "/dashboard" : "/settings"}
                       className="inline-flex rounded-full border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-500"
                     >
-                      {SITE_COPY.onboarding.COPY_ONBOARDING_PROFILE_ACTION_02}
+                      {showConnectGoogleAction
+                        ? SITE_COPY.onboarding.COPY_ONBOARDING_PROFILE_ACTION_01
+                        : SITE_COPY.onboarding.COPY_ONBOARDING_PROFILE_ACTION_02}
                     </Link>
                     <Link
                       href="/onboarding?edit=1&returnTo=onboarding"
@@ -91,7 +114,13 @@ export default async function OnboardingPage({
 
             <main className="relative z-10 mt-6 flex justify-center px-0 pb-6 sm:mt-8 lg:mt-10 lg:pb-8">
               <div className="w-full max-w-5xl">
-                <OnboardingQuiz returnTo={editMode ? returnTo : undefined} />
+                {user ? (
+                  <OnboardingQuiz returnTo={editMode ? returnTo : undefined} />
+                ) : (
+                  <AssessmentAccessGate>
+                    <OnboardingQuiz returnTo={editMode ? returnTo : undefined} />
+                  </AssessmentAccessGate>
+                )}
               </div>
             </main>
           </div>

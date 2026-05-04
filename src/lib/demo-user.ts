@@ -7,6 +7,14 @@ import { buildSeedEvents, buildSeedTasks } from "@/lib/seed-data";
 
 export const DEMO_USER_EMAIL = "demo@student.example";
 
+export async function ensureAssessmentUser() {
+  return prisma.user.create({
+    data: {
+      name: "Student planner",
+    },
+  });
+}
+
 const demoAnswers: RawQuizAnswers = {
   q1: "C",
   q2: "D",

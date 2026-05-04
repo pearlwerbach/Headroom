@@ -4,7 +4,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "HEADROOM | Calendar-Aware Cognitive Load Planner",
+  title: "Headroom | Calendar-Aware Cognitive Load Planner",
   description: "Plan around the kind of time and energy your week actually has.",
 };
 
