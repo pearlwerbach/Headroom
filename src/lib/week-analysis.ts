@@ -57,6 +57,16 @@ type PersistedWeekAnalysisMetrics = Omit<WeekAnalysisMetrics, "weekShapeDays"> &
   dailyLoadDebug: PersistedDailyLoadDebug[];
 };
 
+export type HistoryFeltLoad = "light" | "manageable" | "tight" | "overloaded";
+export type HistoryRecoveryQuality = "poor" | "mixed" | "good" | "restorative";
+export type HistoryWeekOutcome = "productive" | "maintained" | "scrambled" | "burned_out";
+
+export interface WeekHistoryFeedback {
+  feltLoad?: HistoryFeltLoad;
+  recoveryQuality?: HistoryRecoveryQuality;
+  weekOutcome?: HistoryWeekOutcome;
+}
+
 const EMPTY_WEEK_ANALYSIS_METRICS: WeekAnalysisMetrics = {
   totalCommittedMinutes: 0,
   totalOpenMinutes: 0,
@@ -168,6 +178,7 @@ export interface WeekAnalysisHistoryEntry {
   observations: string[];
   suggestions: string[];
   derivedMetrics: WeekAnalysisMetrics;
+  feedback: WeekHistoryFeedback;
 }
 
 const EXTERNALLY_STRUCTURED_TYPES = new Set<WeekEventType>([
@@ -196,7 +207,7 @@ const COMPOSITION_PRIORITY: WeekCompositionCategory[] = [
   "social",
   "recovery_solo",
 ];
-const MAX_DISPLAY_LOAD_SCORE = 99;
+const MAX_DISPLAY_LOAD_SCORE = 100;
 const LOAD_SCORE_ANCHORS = [
   { raw: 0, display: 0 },
   { raw: 2, display: 15 },
@@ -1983,7 +1994,95 @@ function normalizeHistoryEntry(entry: WeekAnalysisHistoryRow) {
     observations: entry.observations,
     suggestions: entry.suggestions,
     derivedMetrics: parseMetrics(entry.derivedMetrics),
+    feedback: extractHistoryFeedback(entry.derivedMetrics),
   } satisfies WeekAnalysisHistoryEntry;
+}
+
+function extractHistoryFeedback(value: unknown): WeekHistoryFeedback {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  const feedback =
+    "historyFeedback" in value && value.historyFeedback && typeof value.historyFeedback === "object" && !Array.isArray(value.historyFeedback)
+      ? (value.historyFeedback as {
+          feltLoad?: unknown;
+          recoveryQuality?: unknown;
+          weekOutcome?: unknown;
+        })
+      : null;
+
+  if (!feedback) {
+    return {};
+  }
+
+  const feltLoad =
+    feedback.feltLoad === "light" ||
+    feedback.feltLoad === "manageable" ||
+    feedback.feltLoad === "tight" ||
+    feedback.feltLoad === "overloaded"
+      ? feedback.feltLoad
+      : undefined;
+  const recoveryQuality =
+    feedback.recoveryQuality === "poor" ||
+    feedback.recoveryQuality === "mixed" ||
+    feedback.recoveryQuality === "good" ||
+    feedback.recoveryQuality === "restorative"
+      ? feedback.recoveryQuality
+      : undefined;
+  const weekOutcome =
+    feedback.weekOutcome === "productive" ||
+    feedback.weekOutcome === "maintained" ||
+    feedback.weekOutcome === "scrambled" ||
+    feedback.weekOutcome === "burned_out"
+      ? feedback.weekOutcome
+      : undefined;
+
+  return {
+    feltLoad,
+    recoveryQuality,
+    weekOutcome,
+  };
+}
+
+function mergeHistoryFeedbackIntoDerivedMetrics(
+  value: unknown,
+  feedback: WeekHistoryFeedback,
+): Prisma.JsonObject {
+  const base =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? { ...(value as Prisma.JsonObject) }
+      : {};
+  const nextFeedback = {
+    ...(feedback.feltLoad ? { feltLoad: feedback.feltLoad } : {}),
+    ...(feedback.recoveryQuality ? { recoveryQuality: feedback.recoveryQuality } : {}),
+    ...(feedback.weekOutcome ? { weekOutcome: feedback.weekOutcome } : {}),
+  };
+
+  if (Object.keys(nextFeedback).length === 0) {
+    delete base.historyFeedback;
+    return base;
+  }
+
+  base.historyFeedback = nextFeedback as unknown as Prisma.JsonObject;
+  return base;
+}
+
+function getCanonicalReportWeekWindow(report: WeekAnalysisReportSnapshot) {
+  const datedDays =
+    report.derivedMetrics.dailyLoadScores.length > 0
+      ? report.derivedMetrics.dailyLoadScores.map((day) => day.date)
+      : report.derivedMetrics.weekShapeDays.map((day) => day.date);
+
+  if (datedDays.length === 0) {
+    return getWeekWindow(report.analyzedAt);
+  }
+
+  const sortedDays = [...datedDays].sort((left, right) => left.getTime() - right.getTime());
+  const weekStart = startOfLocalDay(sortedDays[0]);
+  const weekEnd = addDays(startOfLocalDay(sortedDays[sortedDays.length - 1]), 1);
+
+  return { weekStart, weekEnd };
 }
 
 export function buildWeekAnalysisRecordData(
@@ -2005,7 +2104,7 @@ function buildWeekAnalysisHistoryRecordData(
   userId: string,
   report: WeekAnalysisReportSnapshot,
 ) {
-  const { weekStart, weekEnd } = getWeekWindow(report.analyzedAt);
+  const { weekStart, weekEnd } = getCanonicalReportWeekWindow(report);
 
   return {
     userId,
@@ -2103,7 +2202,20 @@ export async function getWeekAnalysisHistory(userId: string) {
     take: 8,
   });
 
-  return history.map(normalizeHistoryEntry);
+  const normalized = history.map(normalizeHistoryEntry);
+  const deduped: WeekAnalysisHistoryEntry[] = [];
+
+  for (const entry of normalized) {
+    const overlapsExisting = deduped.some(
+      (existing) => entry.weekStart < existing.weekEnd && entry.weekEnd > existing.weekStart,
+    );
+
+    if (!overlapsExisting) {
+      deduped.push(entry);
+    }
+  }
+
+  return deduped;
 }
 
 export async function getWeekAnalysisDashboardState(userId: string): Promise<WeekAnalysisDashboardState> {
@@ -2182,7 +2294,7 @@ export async function getWeekAnalysisDashboardState(userId: string): Promise<Wee
   };
 }
 
-export async function analyzeAndCacheWeek(userId: string) {
+async function analyzeWeekForAnchorDate(userId: string, anchorDate: Date) {
   const [profile, user] = await Promise.all([
     prisma.workProfile.findFirst({
       where: { userId },
@@ -2211,10 +2323,9 @@ export async function analyzeAndCacheWeek(userId: string) {
     user?.includedGoogleCalendarIds ?? [],
     availableCalendars,
   );
-  const events = await fetchEphemeralSelectedCalendarEvents(userId, selectedCalendarIds);
-  const analyzedAt = new Date();
-  const rangeStart = startOfLocalDay(analyzedAt);
+  const rangeStart = startOfLocalDay(anchorDate);
   const rangeEnd = addDays(rangeStart, DASHBOARD_DAYS);
+  const events = await fetchEphemeralSelectedCalendarEvents(userId, selectedCalendarIds, rangeStart);
   const classifiedEvents = events.flatMap((event) => {
     const classifiedEvent = buildCanonicalClassifiedWeekEvent({
       title: event.rawTitle,
@@ -2230,9 +2341,85 @@ export async function analyzeAndCacheWeek(userId: string) {
     return classifiedEvent ? [classifiedEvent] : [];
   });
   logWeekAnalysisDebug(classifiedEvents);
-  const report = createWeekAnalysisReport(classifiedEvents, normalizedProfile, analyzedAt);
+  const report = createWeekAnalysisReport(classifiedEvents, normalizedProfile, rangeStart);
+
+  return { report, selectedCalendarIds, availableCalendars };
+}
+
+async function saveWeekAnalysisHistory(userId: string, report: WeekAnalysisReportSnapshot) {
+  const baseHistoryData = buildWeekAnalysisHistoryRecordData(userId, report);
+  const existing = await prisma.weekAnalysisHistory.findUnique({
+    where: {
+      userId_weekStart: {
+        userId,
+        weekStart: baseHistoryData.weekStart,
+      },
+    },
+    select: {
+      derivedMetrics: true,
+    },
+  });
+  const existingFeedback = extractHistoryFeedback(existing?.derivedMetrics);
+  const historyData = {
+    ...baseHistoryData,
+    derivedMetrics: mergeHistoryFeedbackIntoDerivedMetrics(baseHistoryData.derivedMetrics, existingFeedback),
+  };
+
+  await prisma.$transaction([
+    prisma.weekAnalysisHistory.deleteMany({
+      where: {
+        userId,
+        weekStart: {
+          lt: historyData.weekEnd,
+          not: historyData.weekStart,
+        },
+        weekEnd: {
+          gt: historyData.weekStart,
+        },
+      },
+    }),
+    prisma.weekAnalysisHistory.upsert({
+      where: {
+        userId_weekStart: {
+          userId,
+          weekStart: historyData.weekStart,
+        },
+      },
+      update: {
+        weekEnd: historyData.weekEnd,
+        analyzedAt: historyData.analyzedAt,
+        overallLoadScore: historyData.overallLoadScore,
+        observations: historyData.observations,
+        suggestions: historyData.suggestions,
+        derivedMetrics: historyData.derivedMetrics,
+      },
+      create: historyData,
+    }),
+  ]);
+}
+
+export async function analyzeAndCacheWeek(userId: string) {
+  const { report } = await analyzeWeekForAnchorDate(userId, new Date());
   const reportData = buildWeekAnalysisRecordData(userId, report);
-  const historyData = buildWeekAnalysisHistoryRecordData(userId, report);
+  const baseHistoryData = buildWeekAnalysisHistoryRecordData(userId, report);
+  const existing = await prisma.weekAnalysisHistory.findUnique({
+    where: {
+      userId_weekStart: {
+        userId,
+        weekStart: baseHistoryData.weekStart,
+      },
+    },
+    select: {
+      derivedMetrics: true,
+    },
+  });
+  const historyData = {
+    ...baseHistoryData,
+    derivedMetrics: mergeHistoryFeedbackIntoDerivedMetrics(
+      baseHistoryData.derivedMetrics,
+      extractHistoryFeedback(existing?.derivedMetrics),
+    ),
+  };
 
   await prisma.$transaction([
     prisma.weekAnalysisReport.upsert({
@@ -2246,6 +2433,18 @@ export async function analyzeAndCacheWeek(userId: string) {
         derivedMetrics: reportData.derivedMetrics,
       },
       create: reportData,
+    }),
+    prisma.weekAnalysisHistory.deleteMany({
+      where: {
+        userId,
+        weekStart: {
+          lt: historyData.weekEnd,
+          not: historyData.weekStart,
+        },
+        weekEnd: {
+          gt: historyData.weekStart,
+        },
+      },
     }),
     prisma.weekAnalysisHistory.upsert({
       where: {
@@ -2267,4 +2466,53 @@ export async function analyzeAndCacheWeek(userId: string) {
   ]);
 
   return report;
+}
+
+export async function analyzeAndSavePreviousWeekHistory(userId: string) {
+  const { weekStart } = getWeekWindow();
+  const previousWeekStart = addDays(weekStart, -DASHBOARD_DAYS);
+  const { report } = await analyzeWeekForAnchorDate(userId, previousWeekStart);
+
+  await saveWeekAnalysisHistory(userId, report);
+
+  return report;
+}
+
+export async function updateWeekHistoryFeedback(
+  userId: string,
+  input: {
+    weekStart: Date;
+    weekEnd: Date;
+    feedback: Partial<WeekHistoryFeedback>;
+  },
+) {
+  const existing = await prisma.weekAnalysisHistory.findUnique({
+    where: {
+      userId_weekStart: {
+        userId,
+        weekStart: input.weekStart,
+      },
+    },
+    select: {
+      id: true,
+      weekEnd: true,
+      derivedMetrics: true,
+    },
+  });
+
+  if (!existing || existing.weekEnd.getTime() !== input.weekEnd.getTime()) {
+    throw new Error("History record not found for this week.");
+  }
+
+  const nextFeedback = {
+    ...extractHistoryFeedback(existing.derivedMetrics),
+    ...input.feedback,
+  };
+
+  await prisma.weekAnalysisHistory.update({
+    where: { id: existing.id },
+    data: {
+      derivedMetrics: mergeHistoryFeedbackIntoDerivedMetrics(existing.derivedMetrics, nextFeedback),
+    },
+  });
 }

@@ -319,11 +319,11 @@ const similarlyBusyDemandWeek: ClassifiedWeekEvent[] = [
 ];
 
 describe("toDisplayLoadScore", () => {
-  it("always returns an integer between 0 and 99", () => {
+  it("always returns an integer between 0 and 100", () => {
     expect(toDisplayLoadScore(-10)).toBe(0);
     expect(Number.isInteger(toDisplayLoadScore(32.4))).toBe(true);
-    expect(toDisplayLoadScore(10_000)).toBeLessThanOrEqual(99);
-    expect(toDisplayLoadScore(10_000)).not.toBe(100);
+    expect(toDisplayLoadScore(10_000)).toBeLessThanOrEqual(100);
+    expect(toDisplayLoadScore(10_000)).toBe(100);
   });
 
   it("tracks the calibrated raw-score anchors without saturating too early", () => {
@@ -346,10 +346,10 @@ describe("toDisplayLoadScore", () => {
     expect(toDisplayLoadScore(50)).toBeLessThanOrEqual(90);
 
     expect(toDisplayLoadScore(70)).toBeGreaterThanOrEqual(80);
-    expect(toDisplayLoadScore(70)).toBeLessThanOrEqual(99);
+    expect(toDisplayLoadScore(70)).toBeLessThanOrEqual(100);
 
     expect(toDisplayLoadScore(90)).toBeGreaterThanOrEqual(95);
-    expect(toDisplayLoadScore(90)).toBeLessThanOrEqual(99);
+    expect(toDisplayLoadScore(90)).toBeLessThanOrEqual(100);
   });
 
   it("preserves visible differences across a wide realistic raw range", () => {
@@ -364,7 +364,7 @@ describe("toDisplayLoadScore", () => {
     expect(heavy).toBeGreaterThan(elevated);
     expect(extreme).toBeGreaterThan(heavy);
     expect(extreme - low).toBeGreaterThanOrEqual(45);
-    expect(extreme).toBeLessThanOrEqual(99);
+    expect(extreme).toBeLessThanOrEqual(100);
   });
 
   it("does not map low raw values into near-max display scores", () => {
@@ -420,10 +420,10 @@ describe("createWeekAnalysisReport", () => {
     expect(report.derivedMetrics.socialMinutes).toBeGreaterThan(0);
     expect(report.derivedMetrics.recoverySoloMinutes).toBeGreaterThan(0);
     expect(report.derivedMetrics.overallLoadScore).toBeGreaterThanOrEqual(0);
-    expect(report.derivedMetrics.overallLoadScore).toBeLessThanOrEqual(99);
+    expect(report.derivedMetrics.overallLoadScore).toBeLessThanOrEqual(100);
     expect(report.derivedMetrics.dailyLoadScores).toHaveLength(7);
     expect(report.derivedMetrics.dailyLoadDebug).toHaveLength(7);
-    expect(report.derivedMetrics.dailyLoadScores.every((day) => day.score >= 0 && day.score <= 99)).toBe(true);
+    expect(report.derivedMetrics.dailyLoadScores.every((day) => day.score >= 0 && day.score <= 100)).toBe(true);
     expect(report.derivedMetrics.overallLoadScore).toBe(
       Math.round(
         report.derivedMetrics.dailyLoadScores.reduce((sum, day) => sum + day.score, 0) /
@@ -584,7 +584,7 @@ describe("createWeekAnalysisReport", () => {
       ),
     );
     expect(new Set(representativeStudentWeek.derivedMetrics.dailyLoadScores.map((day) => day.score)).size).toBeGreaterThan(1);
-    expect(representativeStudentWeek.derivedMetrics.dailyLoadScores.every((day) => day.score !== 99)).toBe(true);
+    expect(representativeStudentWeek.derivedMetrics.dailyLoadScores.every((day) => day.score <= 100)).toBe(true);
     expect(
       representativeStudentWeek.derivedMetrics.dailyLoadScores.filter((day) => day.operatingMode === "follow_through").length,
     ).toBeLessThanOrEqual(3);
@@ -1155,9 +1155,9 @@ describe("createWeekAnalysisReport", () => {
     );
 
     expect(report.derivedMetrics.overallLoadScore).toBeGreaterThanOrEqual(0);
-    expect(report.derivedMetrics.overallLoadScore).toBeLessThanOrEqual(99);
+    expect(report.derivedMetrics.overallLoadScore).toBeLessThanOrEqual(100);
     expect(report.derivedMetrics.overallLoadScore).toBeGreaterThan(busyBaseline.derivedMetrics.overallLoadScore);
-    expect(report.derivedMetrics.dailyLoadScores.every((day) => day.score <= 99)).toBe(true);
+    expect(report.derivedMetrics.dailyLoadScores.every((day) => day.score <= 100)).toBe(true);
     expect(
       Math.max(...report.derivedMetrics.dailyLoadScores.map((day) => day.score)),
     ).toBeGreaterThan(

@@ -287,8 +287,8 @@ export async function getGoogleAccessToken(userId: string) {
   return account.access_token;
 }
 
-function buildAnalysisRange() {
-  const start = new Date();
+function buildAnalysisRange(anchorDate = new Date()) {
+  const start = new Date(anchorDate);
   const end = addDays(start, DASHBOARD_DAYS);
 
   return {
@@ -430,9 +430,9 @@ function dedupeEphemeralEvents(events: EphemeralGoogleEvent[]) {
   });
 }
 
-async function fetchEphemeralEventsForCalendar(userId: string, calendarId: string) {
+async function fetchEphemeralEventsForCalendar(userId: string, calendarId: string, anchorDate = new Date()) {
   const accessToken = await getGoogleAccessToken(userId);
-  const range = buildAnalysisRange();
+  const range = buildAnalysisRange(anchorDate);
   const params = new URLSearchParams({
     singleEvents: "true",
     orderBy: "startTime",
@@ -488,10 +488,11 @@ async function fetchEphemeralEventsForCalendar(userId: string, calendarId: strin
 export async function fetchEphemeralSelectedCalendarEvents(
   userId: string,
   calendarIds: string[],
+  anchorDate = new Date(),
 ) {
   const selectedIds = Array.from(new Set(calendarIds));
   const eventGroups = await Promise.all(
-    selectedIds.map((calendarId) => fetchEphemeralEventsForCalendar(userId, calendarId)),
+    selectedIds.map((calendarId) => fetchEphemeralEventsForCalendar(userId, calendarId, anchorDate)),
   );
 
   return dedupeEphemeralEvents(eventGroups.flat());

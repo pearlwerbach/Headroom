@@ -102,7 +102,7 @@ export function getIncludedCalendarsSummary({
   if (selectedCalendars.length > 0 && selectedCalendars.length <= 2) {
     return {
       label: `${selectedCalendars.length} calendars included`,
-      detail: selectedCalendars.map((calendar) => calendar.summary).join(", "),
+      detail: selectedCalendars.map((calendar) => calendar.summary).join(" · "),
     };
   }
 
@@ -113,7 +113,7 @@ export function getIncludedCalendarsSummary({
         ? selectedCalendars
             .slice(0, 3)
             .map((calendar) => calendar.summary)
-            .join(", ")
+            .join(" · ")
         : SITE_COPY.settings.COPY_SETTINGS_CALSUMMARY_MULTI_DETAIL_01,
   };
 }

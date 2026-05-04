@@ -435,18 +435,18 @@ export const SITE_COPY = {
       "Protecting capacity on a Recover Day is part of the plan, not a detour from it.",
     COPY_DASHBOARD_MODE_TITLE_FRAGMENTED_01: "Fragmented Day",
     COPY_DASHBOARD_MODE_MEANING_FRAGMENTED_01:
-      "Stay modular—deep work will be harder than it looks.",
+      "Stay modular, as deep work will be harder than it looks.",
     COPY_DASHBOARD_MODE_ACTION_FRAGMENTED_01:
-      "Keep tasks small, modular, and easy to restart between commitments.",
+      "Keep tasks small, well-defined, and easy to restart between commitments.",
     COPY_DASHBOARD_MODE_ACTION_FRAGMENTED_02:
       "Save your best energy for a different day instead of forcing depth here.",
     COPY_DASHBOARD_MODE_ACTION_FRAGMENTED_03:
       "Use the day for review, prep, admin, and bounded follow-through instead.",
     COPY_DASHBOARD_MODE_REFRAME_FRAGMENTED_01:
-      "This is not a depth-friendly day, even if the calendar looks more open than it feels.",
+      "This is not a depth-friendly day, even if the calendar looks open at times.",
     COPY_DASHBOARD_MODE_TITLE_PROTECTED_01: "Protected Work Day",
     COPY_DASHBOARD_MODE_MEANING_PROTECTED_01:
-      "Protect one real work block—that is the win.",
+      "Protecting one real work block is the win.",
     COPY_DASHBOARD_MODE_ACTION_PROTECTED_01: (label: string) =>
       `Choose ${label} and decide in advance what belongs there.`,
     COPY_DASHBOARD_MODE_ACTION_PROTECTED_02:
@@ -494,7 +494,7 @@ export const SITE_COPY = {
     COPY_DASHBOARD_RECOVERY_STAT_SUBTITLE_01: "across the week",
     COPY_DASHBOARD_RECOVERY_STAT_TITLE_02: "Most restorative day",
     COPY_DASHBOARD_RECOVERY_STAT_EMPTY_01: "None yet",
-    COPY_DASHBOARD_RECOVERY_STAT_EMPTY_02: "No visible island",
+    COPY_DASHBOARD_RECOVERY_STAT_EMPTY_02: "No visible islands",
     COPY_DASHBOARD_RECOVERY_FOOTNOTE_01:
       "These are islands, not quotas. Small moments add up.",
     COPY_DASHBOARD_RECOVERY_SUMMARY_01:
@@ -578,7 +578,7 @@ export const SITE_COPY = {
     COPY_SETTINGS_GOOGLE_TITLE_01: "Google Calendar",
     COPY_SETTINGS_GOOGLE_EYEBROW_01: "Integration",
     COPY_SETTINGS_GOOGLE_DESC_01:
-      "Read-only access to the Google calendars you include for the next 7 days.",
+      "Read-only access to selected calendars for the next 7 days.",
     COPY_SETTINGS_GOOGLE_STATE_RESET_01:
       "Local Google account state was cleared. Reconnect Google Calendar to create one clean account row.",
     COPY_SETTINGS_GOOGLE_LINKED_01:
@@ -592,10 +592,10 @@ export const SITE_COPY = {
     COPY_SETTINGS_GOOGLE_STATUS_NOT_CONNECTED_01: "Not connected",
     COPY_SETTINGS_GOOGLE_STATUS_NEXT7_01: "Next 7 days",
     COPY_SETTINGS_GOOGLE_BODY_01:
-      "Headroom reads only the Google calendars you include here, never writes to them, and only analyzes the next seven days. Event names may be read briefly to classify them into broad categories, but only the categories and derived insights are stored.",
+      "Headroom only reads the calendars you include here. It analyzes the next 7 days and stores categories and insights — not raw event names.",
     COPY_SETTINGS_GOOGLE_CONNECT_DISABLED_01: "Connect Google Calendar",
     COPY_SETTINGS_GOOGLE_DISCONNECT_01: "Disconnect",
-    COPY_SETTINGS_GOOGLE_OPEN_DASHBOARD_01: "Open Dashboard",
+    COPY_SETTINGS_GOOGLE_OPEN_DASHBOARD_01: "Open dashboard",
     COPY_SETTINGS_GOOGLE_SELECTION_TITLE_01: "Calendars included in analysis",
     COPY_SETTINGS_GOOGLE_SELECTION_EYEBROW_01: "Source selection",
     COPY_SETTINGS_GOOGLE_SELECTION_DESC_01:
@@ -615,7 +615,7 @@ export const SITE_COPY = {
     COPY_SETTINGS_PROFILE_ACTION_01: "Retake quiz",
     COPY_SETTINGS_PROFILE_EMPTY_01: "Complete the onboarding quiz to create your first profile.",
     COPY_SETTINGS_GOOGLE_COPY_CONNECTED_FRESH_01:
-      "Google Calendar is connected, and the current week has already been analyzed.",
+      "Your calendar is connected and this week is already analyzed.",
     COPY_SETTINGS_GOOGLE_COPY_CONNECTED_NEEDS_ANALYSIS_01:
       "Google Calendar is connected. Your next step is to analyze the current week.",
     COPY_SETTINGS_GOOGLE_COPY_RECONNECT_01:
@@ -627,7 +627,7 @@ export const SITE_COPY = {
     COPY_SETTINGS_GOOGLE_COPY_NOT_CONNECTED_01:
       "Connect Google Calendar to analyze the next seven days through your profile.",
     COPY_SETTINGS_GOOGLE_NEXTSTEP_CONNECTED_FRESH_01:
-      "Re-analyze any time if you want a fresh read.",
+      "You can re-analyze any time.",
     COPY_SETTINGS_GOOGLE_NEXTSTEP_CONNECTED_NEEDS_ANALYSIS_01:
       "Analyze your week from the Dashboard.",
     COPY_SETTINGS_GOOGLE_NEXTSTEP_PROVIDER_RESTRICTED_01:
@@ -661,7 +661,7 @@ export const SITE_COPY = {
     COPY_HISTORY_LOADLABEL_TIGHT_01: "Tight",
     COPY_HISTORY_LOADLABEL_BALANCED_01: "Balanced",
     COPY_HISTORY_SAVED_AT_01: (value: string) => `Saved ${value}`,
-    COPY_HISTORY_LOAD_BADGE_01: (score: number) => `${score}/99 load`,
+    COPY_HISTORY_LOAD_BADGE_01: (score: number) => `${score}/100 load`,
     COPY_HISTORY_COMMITTED_BADGE_01: (hours: string) => `${hours} committed`,
     COPY_HISTORY_OPEN_BADGE_01: (hours: string) => `${hours} open`,
     COPY_HISTORY_STOOD_OUT_01: "What stood out",

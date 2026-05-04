@@ -9,7 +9,14 @@ import {
   GoogleCalendarAccessError,
   resolveIncludedGoogleCalendarIds,
 } from "@/lib/google-calendar";
-import { analyzeAndCacheWeek, deleteWeekAnalysisReport } from "@/lib/week-analysis";
+import {
+  analyzeAndCacheWeek,
+  analyzeAndSavePreviousWeekHistory,
+  deleteWeekAnalysisReport,
+  updateWeekHistoryFeedback,
+  type HistoryFeltLoad,
+  type HistoryRecoveryQuality,
+} from "@/lib/week-analysis";
 import { removeLocalGoogleAccountState } from "@/lib/google-calendar-debug";
 
 export async function analyzeWeekAction() {
@@ -39,6 +46,46 @@ export async function analyzeWeekAction() {
 
   revalidatePath("/dashboard");
   revalidatePath("/settings");
+}
+
+export async function analyzePreviousWeekHistoryAction() {
+  const user = await requireUser();
+
+  try {
+    await analyzeAndSavePreviousWeekHistory(user.id);
+  } catch (error) {
+    if (error instanceof GoogleCalendarAccessError) {
+      await deleteWeekAnalysisReport(user.id);
+      revalidatePath("/dashboard");
+      revalidatePath("/history");
+      redirect("/dashboard?calendar=reconnect");
+      return;
+    }
+
+    throw error;
+  }
+
+  revalidatePath("/history");
+}
+
+export async function updateWeekHistoryFeedbackAction(input: {
+  weekStart: string;
+  weekEnd: string;
+  feltLoad?: HistoryFeltLoad;
+  recoveryQuality?: HistoryRecoveryQuality;
+}) {
+  const user = await requireUser();
+
+  await updateWeekHistoryFeedback(user.id, {
+    weekStart: new Date(input.weekStart),
+    weekEnd: new Date(input.weekEnd),
+    feedback: {
+      ...(input.feltLoad ? { feltLoad: input.feltLoad } : {}),
+      ...(input.recoveryQuality ? { recoveryQuality: input.recoveryQuality } : {}),
+    },
+  });
+
+  revalidatePath("/history");
 }
 
 export async function disconnectGoogleCalendarAction() {

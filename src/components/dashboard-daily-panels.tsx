@@ -101,7 +101,7 @@ function WeekLoadLens({
   return (
     <div
       className={cn(
-        "rounded-[30px] border px-6 py-5 shadow-[var(--surface-shadow)]",
+        "rounded-[30px] border px-7 py-6 shadow-[var(--surface-shadow)]",
         getWeekLoadClasses(weekLoadSummary.tone),
         className,
       )}
@@ -111,19 +111,19 @@ function WeekLoadLens({
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#C9C6D3]">
             {SITE_COPY.dashboard.COPY_DASHBOARD_WEEKLOAD_EYEBROW_01}
           </p>
-          <h2 className="font-serif text-[2.25rem] leading-none text-white">
+          <h2 className="font-serif text-[2.5rem] leading-none text-white">
             {weekLoadSummary.label}
           </h2>
         </div>
-        <p className="shrink-0 text-[2.4rem] font-semibold tracking-tight text-[#FFFFFF]">
+        <p className="shrink-0 text-[2.7rem] font-semibold tracking-tight text-[#FFFFFF]">
           {weekLoadSummary.score}
           <span className="ml-1 text-base font-medium text-[#C9C6D3]">/100</span>
         </p>
       </div>
-      <p className="mt-4 text-sm leading-7 text-[#FFFFFF]">
+      <p className="mt-5 text-[15px] leading-[1.75] text-[#FFFFFF]">
         {weekLoadSummary.interpretation}
       </p>
-      <p className="mt-3 text-sm leading-7 text-[#C9C6D3]">
+      <p className="mt-3 text-[14px] leading-[1.75] text-[#C9C6D3]">
         {profilePlanningInsight}
       </p>
     </div>
@@ -176,7 +176,7 @@ export function DashboardDailyPanels({
         />
       </div>
 
-      <div className="grid gap-5 lg:min-h-[9.5rem] lg:grid-cols-[minmax(0,1fr)_25.5rem] lg:items-center">
+      <div className="grid gap-6 lg:min-h-[11rem] lg:grid-cols-[minmax(0,0.88fr)_28.5rem] lg:items-center lg:gap-8 xl:grid-cols-[minmax(0,0.84fr)_30rem]">
         <div className="space-y-1.5">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted-strong)]">
@@ -188,15 +188,16 @@ export function DashboardDailyPanels({
               </p>
             ) : null}
           </div>
-          <h1 className="font-serif text-[2.35rem] leading-tight text-slate-950 md:text-[2.65rem]">
+          <h1 className="max-w-[17ch] font-serif text-[1.86rem] leading-[1.06] text-slate-950 md:text-[2.05rem] xl:text-[2.18rem]">
             {SITE_COPY.dashboard.COPY_DASHBOARD_TRAJECTORY_TITLE_01}
           </h1>
         </div>
 
-        <div className="hidden lg:block">
+        <div className="hidden lg:block lg:justify-self-end">
           <WeekLoadLens
             weekLoadSummary={weekLoadSummary}
             profilePlanningInsight={profilePlanningInsight}
+            className="w-full max-w-[30rem]"
           />
         </div>
       </div>

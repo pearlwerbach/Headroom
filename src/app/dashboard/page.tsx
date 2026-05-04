@@ -570,7 +570,7 @@ export default async function DashboardPage({
   return (
     <AppShell heading="Dashboard" userName={user.name}>
       <main className="space-y-8">
-        <section className="mb-8 rounded-[28px] border border-[#E3E6EA] bg-[#EEF1F4] px-6 py-5 text-[#2C2A3A] shadow-[var(--surface-shadow)] backdrop-blur md:px-7 md:py-5.5">
+        <section className="mb-8 rounded-[28px] border border-[#D2DCE3] bg-[#E8EEF2] px-6 py-5 text-[#2C2A3A] shadow-[0_1px_2px_rgba(31,41,51,0.04)] backdrop-blur md:px-7 md:py-5.5">
           <div className="flex flex-col gap-3.5 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-2.5">
               <h1 className="font-serif text-[2rem] leading-tight text-[#2C2A3A]">
@@ -685,9 +685,9 @@ export default async function DashboardPage({
             {subtypePresentation || composition.bars.length > 0 ? (
               <section className="grid gap-8 xl:grid-cols-[minmax(0,1.18fr)_minmax(320px,0.82fr)] xl:items-start xl:gap-9">
                 {subtypePresentation ? (
-                  <section className="rounded-[34px] border border-[#E3E6EA] bg-[#EEF1F4] px-9 py-9 shadow-[var(--surface-shadow)] backdrop-blur">
+                  <section className="rounded-[34px] border border-[#D2DCE3] bg-[#E8EEF2] px-9 py-9 shadow-[0_1px_2px_rgba(31,41,51,0.04)] backdrop-blur">
                     <div className="space-y-2.5">
-                      <h2 className="max-w-3xl font-serif text-[2.5rem] leading-[1.06] text-slate-950">
+                      <h2 className="max-w-3xl font-serif text-[2.05rem] leading-[1.08] text-slate-950 xl:text-[2.15rem]">
                         {subtypePresentation.name}
                       </h2>
                     </div>
@@ -713,7 +713,7 @@ export default async function DashboardPage({
                 {composition.bars.length > 0 ? (
                   <section className="rounded-[32px] border border-[#E8E2DB] bg-white px-8 py-7 shadow-[var(--surface-shadow)] backdrop-blur">
                     <div className="pb-1.5">
-                      <h2 className="font-serif text-[2.15rem] leading-tight text-slate-950">
+                      <h2 className="font-serif text-[1.82rem] leading-[1.08] text-slate-950 xl:text-[1.92rem]">
                         {SITE_COPY.dashboard.COPY_DASHBOARD_COMPOSITION_TITLE_01}
                       </h2>
                     </div>
@@ -752,14 +752,14 @@ export default async function DashboardPage({
             ) : null}
 
             {recoveryIslands && recoveryIslands.detectableRecoveryBlockCount >= 2 ? (
-              <section className="mt-12 rounded-[32px] border border-[#C9D7CC] bg-[linear-gradient(180deg,rgba(233,241,234,0.98),rgba(226,236,227,0.94))] px-7 py-7 shadow-[var(--surface-shadow)] backdrop-blur xl:mx-auto xl:max-w-[76rem] xl:px-9 xl:py-8">
-                <div className="grid gap-6 xl:grid-cols-[470px_minmax(0,1fr)] xl:items-center">
-                  <aside className="rounded-[24px] border border-[#D0DBD1] bg-[rgba(255,255,255,0.72)] px-6 py-5 shadow-[0_10px_24px_-20px_rgba(76,94,84,0.28)]">
+              <section className="mt-10 rounded-[30px] border border-[rgba(91,120,103,0.22)] bg-[linear-gradient(to_bottom,#EAF2ED_0%,#E4ECE6_100%)] px-6 py-5 shadow-[var(--surface-shadow)] backdrop-blur xl:mx-auto xl:max-w-[76rem] xl:px-7 xl:py-5.5">
+                <div className="grid gap-4 xl:grid-cols-[minmax(320px,0.43fr)_minmax(0,0.57fr)] xl:items-center">
+                  <aside className="rounded-[22px] border border-[rgba(31,41,51,0.08)] bg-[rgba(255,255,255,0.86)] px-5 py-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
                     <div className="space-y-2.5">
-                      <p className="text-sm font-semibold text-slate-900">
+                      <p className="text-[12.5px] font-semibold tracking-[0.06em] text-[rgba(91,107,115,0.65)]">
                         {SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_PROFILE_TITLE_01}
                       </p>
-                      <div className="space-y-2.5 text-[14px] leading-6 text-slate-700">
+                      <div className="space-y-2 text-[14px] leading-[1.5] text-[rgba(31,41,51,0.78)]">
                         <p>{recoveryIslands.profileBestWith}</p>
                         <div className="flex items-start gap-2">
                           <span className="mt-2 h-1.5 w-1.5 rounded-full bg-[#7BAA8D]" />
@@ -773,46 +773,46 @@ export default async function DashboardPage({
                     </div>
                   </aside>
 
-                  <div className="space-y-2 xl:pl-4">
-                    <h2 className="font-serif text-[1.85rem] leading-tight text-slate-900">
+                  <div className="space-y-1 xl:pl-2">
+                    <h2 className="font-serif text-[2.08rem] leading-[1.02] text-slate-900 xl:text-[2.18rem]">
                       {SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_TITLE_01}
                     </h2>
-                    <p className="max-w-3xl text-[15px] leading-[1.65] text-slate-700">
+                    <p className="max-w-3xl text-[16px] leading-[1.58] text-slate-700">
                       {recoveryIslands.summary}
                     </p>
-                    <p className="max-w-3xl text-[15px] leading-[1.65] text-slate-600">
+                    <p className="max-w-3xl text-[16px] leading-[1.58] text-slate-600">
                       {recoveryIslands.supportingLine}
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-7">
+                <div className="mt-4">
                   <RecoveryIslandsVisual days={recoveryIslands.days} />
                 </div>
 
-                <div className="mt-7 grid gap-5 xl:grid-cols-[300px_minmax(0,1fr)] xl:items-start">
-                  <div className="rounded-[22px] border border-[#D0DBD1] bg-[rgba(255,255,255,0.76)] px-6 py-5">
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-                      <div>
-                        <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(360px,0.36fr)_minmax(0,0.64fr)] xl:items-stretch">
+                  <div className="h-full rounded-[22px] border border-[rgba(31,41,51,0.08)] bg-[rgba(255,255,255,0.86)] px-6 py-5">
+                    <div className="grid h-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-center gap-6">
+                      <div className="min-w-0 space-y-1.5">
+                        <p className="whitespace-nowrap text-[10px] uppercase tracking-[0.18em] text-slate-500">
                           {SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_STAT_TITLE_01}
                         </p>
-                        <p className="mt-1.5 font-serif text-[2rem] leading-none text-slate-900">
+                        <p className="font-serif text-[2rem] leading-none text-slate-900">
                           {Math.round((recoveryIslands.totalRecoveryMinutes / 60) * 10) / 10}h
                         </p>
-                        <p className="mt-1 text-[13px] leading-6 text-slate-500">
+                        <p className="text-[13px] leading-5 text-slate-500">
                           {SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_STAT_SUBTITLE_01}
                         </p>
                       </div>
-                      <div>
-                        <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                      <div className="min-w-0 space-y-1.5 border-l border-[#D9E2DB] pl-6">
+                        <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500">
                           {SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_STAT_TITLE_02}
                         </p>
-                        <p className="mt-1.5 font-serif text-[1.75rem] leading-none text-slate-900">
+                        <p className="font-serif text-[2rem] leading-none text-slate-900">
                           {recoveryIslands.mostRestorativeDay?.label ??
                             SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_STAT_EMPTY_01}
                         </p>
-                        <p className="mt-1 text-[13px] leading-6 text-slate-500">
+                        <p className="text-[13px] leading-5 text-slate-500">
                           {recoveryIslands.mostRestorativeDay
                             ? `${formatMinutesAsHours(recoveryIslands.mostRestorativeDay.totalRecoveryMinutes)} visible`
                             : SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_STAT_EMPTY_02}
@@ -824,7 +824,7 @@ export default async function DashboardPage({
                   <RecoveryLegendCard />
                 </div>
 
-                <div className="mt-5 text-center text-[12px] leading-6 text-slate-500">
+                <div className="mt-2 text-center text-[11px] leading-5 text-slate-500">
                   <span>{SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_FOOTNOTE_01}</span>
                 </div>
               </section>

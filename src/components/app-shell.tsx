@@ -34,7 +34,7 @@ export function AppShell({
     <div className="relative min-h-screen overflow-hidden px-4 py-5 sm:px-6 lg:px-8">
       <div className="theme-shell-wash pointer-events-none absolute inset-0" />
       <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-10">
-        <header className="border-b border-[#e4ddd3] bg-[rgba(250,247,242,0.72)] px-1 py-6 backdrop-blur-[2px] sm:py-7">
+        <header className="border-b border-[rgba(31,41,51,0.08)] bg-transparent px-1 py-6 sm:py-7">
           <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
             <div className="flex flex-col gap-5 xl:min-w-0 xl:flex-1 xl:flex-row xl:items-end xl:gap-10">
               <div className="min-w-0 space-y-2">

@@ -3,6 +3,7 @@ import { unstable_noStore as noStore } from "next/cache";
 import { SectionCard } from "@/components/section-card";
 import { StatusPill } from "@/components/status-pill";
 import {
+  analyzeWeekAction,
   disconnectGoogleCalendarAction,
   updateIncludedCalendarsAction,
 } from "@/app/actions/week-analysis";
@@ -112,6 +113,7 @@ export default async function SettingsPage({
     googleUiStatus === "connected_ready" || googleUiStatus === "reconnect_needed"
       ? SITE_COPY.settings.COPY_SETTINGS_GOOGLE_PRIMARY_ACTION_RECONNECT_01
       : SITE_COPY.settings.COPY_SETTINGS_GOOGLE_PRIMARY_ACTION_CONNECT_01;
+  const showAnalyzePrimary = googleUiStatus === "connected_ready";
   const primaryButtonClass =
     "inline-flex items-center justify-center rounded-full border border-transparent bg-[#2F3A34] px-6 py-3 text-sm font-medium tracking-[0.02em] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_10px_24px_rgba(47,58,52,0.14)] transition duration-150 hover:-translate-y-px hover:bg-[#38463f]";
   const secondaryButtonClass =
@@ -155,11 +157,11 @@ export default async function SettingsPage({
               <StatusPill>{calendarSummary.label}</StatusPill>
               <StatusPill>{SITE_COPY.settings.COPY_SETTINGS_GOOGLE_STATUS_NEXT7_01}</StatusPill>
             </div>
-            <div className="space-y-3">
-              <p className="max-w-2xl text-sm leading-7 text-slate-600">
+            <div className="space-y-2">
+              <p className="max-w-[520px] text-sm leading-7 text-slate-600">
                 {SITE_COPY.settings.COPY_SETTINGS_GOOGLE_BODY_01}
               </p>
-              <p className="max-w-2xl text-sm leading-7 text-slate-600">{calendarSummary.detail}</p>
+              <p className="text-sm leading-6 text-slate-500">{calendarSummary.detail}</p>
             </div>
             <div className="rounded-[20px] border border-[#e4e2db] bg-[#f8f7f3] px-5 py-5">
               <p className="text-sm font-semibold leading-6 text-slate-900">{googleStatusCopy}</p>
@@ -171,11 +173,14 @@ export default async function SettingsPage({
               </p>
             ) : null}
             <div className="flex flex-wrap items-center gap-3 md:gap-4">
-              {googleOAuthConfigured ? (
-                <Link
-                  href="/connect/google"
-                  className={primaryButtonClass}
-                >
+              {showAnalyzePrimary ? (
+                <form action={analyzeWeekAction}>
+                  <button type="submit" className={primaryButtonClass}>
+                    {SITE_COPY.dashboard.COPY_DASHBOARD_ANALYZE_ACTION_02}
+                  </button>
+                </form>
+              ) : googleOAuthConfigured ? (
+                <Link href="/connect/google" className={primaryButtonClass}>
                   {primaryConnectionActionLabel}
                 </Link>
               ) : (
