@@ -34,7 +34,7 @@ function makeProfile(overrides: Partial<ProfileSnapshot> = {}): ProfileSnapshot 
     subtypeDescription:
       "You do your best work when demanding tasks have structure, protection, and enough uninterrupted time.",
     shortSummary:
-      "Protected time matters more than how much open time the week appears to have.",
+      "Your week works best when deep work is protected before smaller commitments fill the space.",
     overloadSensitivity: 4,
     transitionCost: 5,
     deepWorkCapacity: 5,
@@ -66,7 +66,7 @@ describe("ProfileOverview", () => {
   it("renders only the adaptive signal sentence and not the separate definition line", () => {
     render(<ProfileOverview profile={makeProfile()} />);
 
-    expect(screen.getByText("Broken time quickly reduces how much demanding work stays usable.")).toBeInTheDocument();
+    expect(screen.getByText("Broken time quickly reduces how much demanding work you can do.")).toBeInTheDocument();
     expect(
       screen.queryByText("Short gaps reduce usable work capacity"),
     ).not.toBeInTheDocument();
@@ -79,11 +79,21 @@ describe("ProfileOverview", () => {
     render(<ProfileOverview profile={makeProfile()} />);
 
     expect(
-      screen.getByRole("heading", { name: "Protected-Block Planner" }),
+      screen.getAllByRole("heading", { name: "Protected-Block Planner" }),
+    ).toHaveLength(2);
+    expect(
+      screen.getByText(
+        "When a work block gets interrupted, it can be hard to recover the depth that block was meant to support.",
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Your best work depends on protected time, and once a block is broken, depth is harder to recover.",
+        "You do your best work when demanding tasks have structure, protection, and enough uninterrupted time.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Your week works best when deep work is protected before smaller commitments fill the space.",
       ),
     ).toBeInTheDocument();
   });
@@ -94,6 +104,24 @@ describe("ProfileOverview", () => {
     expect(screen.getByText("1.")).toBeInTheDocument();
     expect(screen.getByText("2.")).toBeInTheDocument();
     expect(screen.getByText("3.")).toBeInTheDocument();
+  });
+
+  it("keeps subtype, keep-in-mind, and plan content in separate sections", () => {
+    render(<ProfileOverview profile={makeProfile()} />);
+
+    expect(
+      screen.queryAllByText("Open gaps are not always enough for demanding work."),
+    ).toHaveLength(1);
+    expect(
+      screen.queryAllByText(
+        "You do your best work when demanding tasks have structure, protection, and enough uninterrupted time.",
+      ),
+    ).toHaveLength(1);
+    expect(
+      screen.queryAllByText(
+        "Your week works best when deep work is protected before smaller commitments fill the space.",
+      ),
+    ).toHaveLength(1);
   });
 
   it("does not render developer debug panels", () => {

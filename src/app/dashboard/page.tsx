@@ -8,6 +8,7 @@ import { RecoveryIslandsVisual, RecoveryLegendCard } from "@/components/recovery
 import { StatusPill } from "@/components/status-pill";
 import { analyzeWeekAction } from "@/app/actions/week-analysis";
 import { DEFAULT_WAKE_HOUR } from "@/lib/constants";
+import { SITE_COPY } from "@/lib/copy";
 import type { CognitiveProfileSnapshot, WeekAnalysisMetrics, WeekShapeDay, WeekShapeSegment } from "@/lib/domain";
 import { requireUser } from "@/lib/session";
 import { getWeekAnalysisDashboardState } from "@/lib/week-analysis";
@@ -28,6 +29,13 @@ import {
 
 type DashboardState = Awaited<ReturnType<typeof getWeekAnalysisDashboardState>>;
 type DashboardReport = NonNullable<DashboardState["report"]>;
+
+const COMPOSITION_BAR_MAX_MINUTES = {
+  work_class: 50 * 60,
+  meetings_structured: 15 * 60,
+  social: 20 * 60,
+  recovery_solo: 30 * 60,
+} as const;
 
 function safeNumber(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
@@ -60,11 +68,11 @@ function clamp(value: number, min: number, max: number) {
 }
 
 function getLoadLabel(score: number) {
-  if (score >= 83) return "Strained";
-  if (score >= 65) return "Tight";
-  if (score >= 45) return "Full";
-  if (score >= 25) return "Steady";
-  return "Open";
+  if (score >= 83) return SITE_COPY.dashboard.COPY_DASHBOARD_LOAD_LABEL_STRAINED_01;
+  if (score >= 65) return SITE_COPY.dashboard.COPY_DASHBOARD_LOAD_LABEL_TIGHT_01;
+  if (score >= 45) return SITE_COPY.dashboard.COPY_DASHBOARD_LOAD_LABEL_FULL_01;
+  if (score >= 25) return SITE_COPY.dashboard.COPY_DASHBOARD_LOAD_LABEL_STEADY_01;
+  return SITE_COPY.dashboard.COPY_DASHBOARD_LOAD_LABEL_OPEN_01;
 }
 
 function buildCognitiveLoadSummary(
@@ -91,10 +99,9 @@ function buildCognitiveLoadSummary(
       score,
       scheduledScore,
       marginHours: marginSnapshot.marginHours,
-      label: "Strained",
+      label: SITE_COPY.dashboard.COPY_DASHBOARD_LOAD_LABEL_STRAINED_01,
       tone: "alert" as const,
-      interpretation:
-        "Demand is likely to outpace support this week, so without adjustment the schedule may feel harder to live through than it looks.",
+      interpretation: SITE_COPY.dashboard.COPY_DASHBOARD_LOAD_INTERPRETATION_STRAINED_01,
       comparisonLine: scheduledVsExpectedLine,
       supportingLine: socialRead,
     };
@@ -105,10 +112,9 @@ function buildCognitiveLoadSummary(
       score,
       scheduledScore,
       marginHours: marginSnapshot.marginHours,
-      label: "Tight",
+      label: SITE_COPY.dashboard.COPY_DASHBOARD_LOAD_LABEL_TIGHT_01,
       tone: "warm" as const,
-      interpretation:
-        "The week has limited margin, so structure, recovery, and transitions will shape how usable it feels.",
+      interpretation: SITE_COPY.dashboard.COPY_DASHBOARD_LOAD_INTERPRETATION_TIGHT_01,
       comparisonLine: scheduledVsExpectedLine,
       supportingLine: socialRead,
     };
@@ -119,10 +125,9 @@ function buildCognitiveLoadSummary(
       score,
       scheduledScore,
       marginHours: marginSnapshot.marginHours,
-      label: "Full",
+      label: SITE_COPY.dashboard.COPY_DASHBOARD_LOAD_LABEL_FULL_01,
       tone: "warm" as const,
-      interpretation:
-        "The week is carrying real demand, but it remains supportable if recovery and placement stay intentional.",
+      interpretation: SITE_COPY.dashboard.COPY_DASHBOARD_LOAD_INTERPRETATION_FULL_01,
       comparisonLine: scheduledVsExpectedLine,
       supportingLine: socialRead,
     };
@@ -133,10 +138,9 @@ function buildCognitiveLoadSummary(
       score,
       scheduledScore,
       marginHours: marginSnapshot.marginHours,
-      label: "Steady",
+      label: SITE_COPY.dashboard.COPY_DASHBOARD_LOAD_LABEL_STEADY_01,
       tone: "success" as const,
-      interpretation:
-        "The week has meaningful structure, but it still leaves enough margin to stay workable.",
+      interpretation: SITE_COPY.dashboard.COPY_DASHBOARD_LOAD_INTERPRETATION_STEADY_01,
       comparisonLine: scheduledVsExpectedLine,
       supportingLine: socialRead,
     };
@@ -146,10 +150,9 @@ function buildCognitiveLoadSummary(
     score,
     scheduledScore,
     marginHours: marginSnapshot.marginHours,
-    label: "Open",
+    label: SITE_COPY.dashboard.COPY_DASHBOARD_LOAD_LABEL_OPEN_01,
     tone: "success" as const,
-    interpretation:
-      "This week has real breathing room, and your capacity is less likely to be constrained by structure alone.",
+    interpretation: SITE_COPY.dashboard.COPY_DASHBOARD_LOAD_INTERPRETATION_OPEN_01,
     comparisonLine: scheduledVsExpectedLine,
     supportingLine: socialRead,
   };
@@ -203,24 +206,36 @@ function buildComposition(report: DashboardReport) {
   return {
     bars: [
       {
-        label: "Work / class",
+        label: SITE_COPY.dashboard.COPY_DASHBOARD_COMPOSITION_BAR_LABEL_01,
         minutes: aggregation?.totals.work_class ?? 0,
-        percent: toPercent(aggregation?.totals.work_class ?? 0, totalWeekMinutes),
+        percent: toPercent(
+          aggregation?.totals.work_class ?? 0,
+          COMPOSITION_BAR_MAX_MINUTES.work_class,
+        ),
       },
       {
-        label: "Meetings / structured",
+        label: SITE_COPY.dashboard.COPY_DASHBOARD_COMPOSITION_BAR_LABEL_02,
         minutes: aggregation?.totals.meetings_structured ?? 0,
-        percent: toPercent(aggregation?.totals.meetings_structured ?? 0, totalWeekMinutes),
+        percent: toPercent(
+          aggregation?.totals.meetings_structured ?? 0,
+          COMPOSITION_BAR_MAX_MINUTES.meetings_structured,
+        ),
       },
       {
-        label: "Social",
+        label: SITE_COPY.dashboard.COPY_DASHBOARD_COMPOSITION_BAR_LABEL_03,
         minutes: aggregation?.totals.social ?? 0,
-        percent: toPercent(aggregation?.totals.social ?? 0, totalWeekMinutes),
+        percent: toPercent(
+          aggregation?.totals.social ?? 0,
+          COMPOSITION_BAR_MAX_MINUTES.social,
+        ),
       },
       {
-        label: "Recovery / solo",
+        label: SITE_COPY.dashboard.COPY_DASHBOARD_COMPOSITION_BAR_LABEL_04,
         minutes: aggregation?.totals.recovery_solo ?? 0,
-        percent: toPercent(aggregation?.totals.recovery_solo ?? 0, totalWeekMinutes),
+        percent: toPercent(
+          aggregation?.totals.recovery_solo ?? 0,
+          COMPOSITION_BAR_MAX_MINUTES.recovery_solo,
+        ),
       },
     ],
     openMinutes,
@@ -289,57 +304,57 @@ function buildPatternFeedback(
 
   if (safeNumber(metrics.loadConcentration) >= 0.35 || midweekHours >= totalCommittedHours * 0.42) {
     feedback.push({
-      title: "Compression",
-      text: "A disproportionate share of the week is landing in a narrow stretch, which can make your margin drop faster than the total hours alone suggest.",
+      title: SITE_COPY.dashboard.COPY_DASHBOARD_PATTERN_TITLE_COMPRESSION_01,
+      text: SITE_COPY.dashboard.COPY_DASHBOARD_PATTERN_TEXT_COMPRESSION_01,
     });
   }
 
   if (safeNumber(metrics.squeezedOpenBlockCount) >= 3 || safeNumber(metrics.fragmentationBurden) >= 4.5) {
     feedback.push({
-      title: "False openness",
+      title: SITE_COPY.dashboard.COPY_DASHBOARD_PATTERN_TITLE_FALSE_OPENNESS_01,
       text:
         profile.fragmentationCost >= 4
-          ? "Several open-looking gaps are likely to be misleading because your profile is especially sensitive to interruption and broken runway."
-          : "Several open-looking gaps are likely to behave more like overflow space than like true margin.",
+          ? SITE_COPY.dashboard.COPY_DASHBOARD_PATTERN_TEXT_FALSE_OPENNESS_01
+          : SITE_COPY.dashboard.COPY_DASHBOARD_PATTERN_TEXT_FALSE_OPENNESS_02,
     });
   }
 
   if (safeNumber(metrics.recoverySoloMinutes) <= 180) {
     feedback.push({
-      title: "Recovery mismatch",
+      title: SITE_COPY.dashboard.COPY_DASHBOARD_PATTERN_TITLE_RECOVERY_MISMATCH_01,
       text:
         profile.quietRecoveryValue >= 4
-          ? "The week does not show much protected quieter reset time, so the recovery that does exist may not land where your profile benefits from it most."
+          ? SITE_COPY.dashboard.COPY_DASHBOARD_PATTERN_TEXT_RECOVERY_MISMATCH_01
           : profile.exerciseRecoveryValue >= 4 && metrics.exerciseCount === 0
-            ? "The week is light on the kind of physical reset your profile tends to use well, so support may feel thinner than the calendar implies."
-            : "Recovery is present only lightly or unevenly, which makes the week more likely to feel effortful as demands stack up.",
+            ? SITE_COPY.dashboard.COPY_DASHBOARD_PATTERN_TEXT_RECOVERY_MISMATCH_02
+            : SITE_COPY.dashboard.COPY_DASHBOARD_PATTERN_TEXT_RECOVERY_MISMATCH_03,
     });
   }
 
   if (safeNumber(metrics.transitionDensity) >= 1.25) {
     feedback.push({
-      title: "Transition overload",
+      title: SITE_COPY.dashboard.COPY_DASHBOARD_PATTERN_TITLE_TRANSITION_01,
       text:
         profile.transitionCost >= 4
-          ? "There are enough mode switches in the week that your profile is likely to pay a real capacity cost just from changing gears."
-          : "The schedule asks for a lot of switching, which makes open time less stable even when the total hours still look reasonable.",
+          ? SITE_COPY.dashboard.COPY_DASHBOARD_PATTERN_TEXT_TRANSITION_01
+          : SITE_COPY.dashboard.COPY_DASHBOARD_PATTERN_TEXT_TRANSITION_02,
     });
   }
 
   if ((midweekHours + lateWeekHours) >= totalCommittedHours * 0.65 && safeNumber(metrics.recoverySoloMinutes) <= 180) {
     feedback.push({
-      title: "Fatigue accumulation",
-      text: "Because the denser stretch is not followed by much visible recovery, the week is more likely to wear on you progressively rather than all at once.",
+      title: SITE_COPY.dashboard.COPY_DASHBOARD_PATTERN_TITLE_FATIGUE_01,
+      text: SITE_COPY.dashboard.COPY_DASHBOARD_PATTERN_TEXT_FATIGUE_01,
     });
   }
 
   if (socialShare >= 0.18) {
     feedback.push({
-      title: "Socially dense",
+      title: SITE_COPY.dashboard.COPY_DASHBOARD_PATTERN_TITLE_SOCIAL_DENSE_01,
       text:
         profile.socialRecoveryValue >= 4
-          ? "Social time is prominent enough to shape the week, but it is more likely to feel restorative when it is not pressed tightly against the heaviest commitments."
-          : "Social time is prominent enough to shape the week, and for your profile it may function more like demand than like passive relief.",
+          ? SITE_COPY.dashboard.COPY_DASHBOARD_PATTERN_TEXT_SOCIAL_DENSE_01
+          : SITE_COPY.dashboard.COPY_DASHBOARD_PATTERN_TEXT_SOCIAL_DENSE_02,
     });
   }
 
@@ -508,15 +523,17 @@ export default async function DashboardPage({
         : "alert";
   const statusLabel =
     googleUiStatus === "connected_ready"
-      ? "Connected"
+      ? SITE_COPY.shared.COPY_SHARED_STATUS_CONNECTED_01
       : googleUiStatus === "reconnect_needed"
-        ? "Reconnect needed"
+        ? SITE_COPY.shared.COPY_SHARED_STATUS_RECONNECT_01
         : googleUiStatus === "missing_calendar_access"
-          ? "Calendar access missing"
+          ? SITE_COPY.shared.COPY_SHARED_STATUS_MISSING_ACCESS_01
           : googleUiStatus === "provider_access_restricted"
-            ? "Provider access restricted"
-            : "Not connected";
-  const primaryActionLabel = hasReport ? "Re-analyze Week" : "Analyze My Week";
+            ? SITE_COPY.shared.COPY_SHARED_STATUS_PROVIDER_RESTRICTED_01
+            : SITE_COPY.shared.COPY_SHARED_STATUS_NOT_CONNECTED_01;
+  const primaryActionLabel = hasReport
+    ? SITE_COPY.dashboard.COPY_DASHBOARD_ANALYZE_ACTION_02
+    : SITE_COPY.dashboard.COPY_DASHBOARD_ANALYZE_ACTION_01;
   const calendarSourceSummary = getIncludedCalendarsSummary({
     selectedCalendarIds: state.selectedCalendarIds,
     calendars: state.availableCalendars,
@@ -553,18 +570,20 @@ export default async function DashboardPage({
   return (
     <AppShell heading="Dashboard" userName={user.name}>
       <main className="space-y-8">
-        <section className="rounded-[28px] border border-[#E3E6EA] bg-[#EEF1F4] px-5 py-4 text-[#2C2A3A] shadow-[var(--surface-shadow)] backdrop-blur">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-3">
+        <section className="mb-8 rounded-[28px] border border-[#E3E6EA] bg-[#EEF1F4] px-6 py-5 text-[#2C2A3A] shadow-[var(--surface-shadow)] backdrop-blur md:px-7 md:py-5.5">
+          <div className="flex flex-col gap-3.5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-2.5">
               <h1 className="font-serif text-[2rem] leading-tight text-[#2C2A3A]">
-                Analyze My Week
+                {SITE_COPY.dashboard.COPY_DASHBOARD_ANALYZE_TITLE_01}
               </h1>
               <div className="flex flex-wrap items-center gap-2.5">
                 <StatusPill tone={statusTone}>{statusLabel}</StatusPill>
                 <StatusPill>{calendarSourceSummary.label}</StatusPill>
                 {state.report ? (
                   <StatusPill>
-                    Last analyzed: {formatDateTime(state.report.analyzedAt)}
+                    {SITE_COPY.dashboard.COPY_DASHBOARD_STATUS_LAST_ANALYZED_01(
+                      formatDateTime(state.report.analyzedAt),
+                    )}
                   </StatusPill>
                 ) : null}
               </div>
@@ -581,9 +600,9 @@ export default async function DashboardPage({
                 >
                   {state.normalizedProfile
                     ? googleOAuthConfigured
-                      ? "Connect in Settings"
-                      : "Finish local OAuth setup"
-                    : "Refresh profile"}
+                      ? SITE_COPY.dashboard.COPY_DASHBOARD_ACTION_CONNECT_SETTINGS_01
+                      : SITE_COPY.dashboard.COPY_DASHBOARD_ACTION_FINISH_LOCAL_OAUTH_01
+                    : SITE_COPY.dashboard.COPY_DASHBOARD_ACTION_REFRESH_PROFILE_01}
                 </Link>
               )}
             </div>
@@ -592,63 +611,60 @@ export default async function DashboardPage({
 
         {!state.normalizedProfile ? (
           <section className="rounded-[28px] border border-[#E8E2DB] bg-white p-6 shadow-[var(--surface-shadow)] backdrop-blur">
-            <h2 className="font-serif text-2xl leading-tight text-slate-900">Profile needed</h2>
+            <h2 className="font-serif text-2xl leading-tight text-slate-900">
+              {SITE_COPY.dashboard.COPY_DASHBOARD_EMPTY_PROFILE_TITLE_01}
+            </h2>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-              Refresh your profile before Headroom can interpret the structure of the week against
-              it.
+              {SITE_COPY.dashboard.COPY_DASHBOARD_EMPTY_PROFILE_BODY_01}
             </p>
           </section>
         ) : !googleOAuthConfigured ? (
           <section className="rounded-[28px] border border-[#E8E2DB] bg-white p-6 shadow-[var(--surface-shadow)] backdrop-blur">
             <h2 className="font-serif text-2xl leading-tight text-slate-900">
-              Finish local Google OAuth setup
+              {SITE_COPY.dashboard.COPY_DASHBOARD_EMPTY_OAUTH_TITLE_01}
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-              Google Calendar analysis is ready in-app, but localhost OAuth credentials are still
-              placeholders.
+              {SITE_COPY.dashboard.COPY_DASHBOARD_EMPTY_OAUTH_BODY_01}
             </p>
           </section>
         ) : googleUiStatus === "not_connected" ? (
           <section className="rounded-[28px] border border-[#E8E2DB] bg-white p-6 shadow-[var(--surface-shadow)] backdrop-blur">
             <h2 className="font-serif text-2xl leading-tight text-slate-900">
-              Connect Google Calendar
+              {SITE_COPY.dashboard.COPY_DASHBOARD_EMPTY_CONNECT_TITLE_01}
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-              Headroom reads only the Google calendars you include and only analyzes the next seven
-              days.
+              {SITE_COPY.dashboard.COPY_DASHBOARD_EMPTY_CONNECT_BODY_01}
             </p>
           </section>
         ) : googleUiStatus === "missing_calendar_access" ? (
           <section className="rounded-[28px] border border-[#E8E2DB] bg-white p-6 shadow-[var(--surface-shadow)] backdrop-blur">
             <h2 className="font-serif text-2xl leading-tight text-slate-900">
-              Calendar access is missing
+              {SITE_COPY.dashboard.COPY_DASHBOARD_EMPTY_MISSING_ACCESS_TITLE_01}
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-              This Google account is linked, but Headroom does not have read-only calendar access
-              for it yet. Reconnect in Settings and approve calendar access.
+              {SITE_COPY.dashboard.COPY_DASHBOARD_EMPTY_MISSING_ACCESS_BODY_01}
             </p>
           </section>
         ) : googleUiStatus === "provider_access_restricted" ? (
           <section className="rounded-[28px] border border-[#E8E2DB] bg-white p-6 shadow-[var(--surface-shadow)] backdrop-blur">
             <h2 className="font-serif text-2xl leading-tight text-slate-900">
-              Calendar access is restricted
+              {SITE_COPY.dashboard.COPY_DASHBOARD_EMPTY_PROVIDER_RESTRICTED_TITLE_01}
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-              Google sign-in worked, but this account is not currently allowed to expose calendar
-              data here. Check provider access restrictions, then reconnect.
+              {SITE_COPY.dashboard.COPY_DASHBOARD_EMPTY_PROVIDER_RESTRICTED_BODY_01}
             </p>
           </section>
         ) : googleUiStatus === "reconnect_needed" ? (
           <section className="rounded-[28px] border border-white/55 bg-white/85 p-6 shadow-[0_30px_80px_-40px_rgba(15,23,42,0.5)] backdrop-blur">
             <h2 className="font-serif text-2xl leading-tight text-slate-900">
-              Reconnect Google Calendar
+              {SITE_COPY.dashboard.COPY_DASHBOARD_EMPTY_RECONNECT_TITLE_01}
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-              Google Calendar access expired. Reconnect Google Calendar, then run a fresh analysis.
+              {SITE_COPY.dashboard.COPY_DASHBOARD_EMPTY_RECONNECT_BODY_01}
             </p>
           </section>
         ) : state.report ? (
-          <section className="space-y-8">
+          <section className="space-y-10">
             {cognitiveLoadSummary ? (
               <DashboardDailyPanels
                 days={state.report.derivedMetrics.dailyLoadScores}
@@ -666,81 +682,84 @@ export default async function DashboardPage({
               />
             ) : null}
 
-            <section className="grid gap-8 xl:grid-cols-[1.08fr_0.92fr] xl:items-start">
-              {subtypePresentation ? (
-                <section className="rounded-[34px] border border-[#E8E2DB] bg-white px-7 py-7 shadow-[var(--surface-shadow)] backdrop-blur">
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#7d6677]">
-                      Cognitive subtype
-                    </p>
-                    <h2 className="font-serif text-[2rem] leading-tight text-slate-950">
-                      {subtypePresentation.name}
-                    </h2>
-                  </div>
-                  <p className="mt-5 max-w-3xl text-sm leading-7 text-slate-700">
-                    {subtypePresentation.overviewLine}
-                  </p>
-                  {subtypeBullets.length > 0 ? (
-                    <div className="mt-6 space-y-3">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#7d6677]">
-                        What this means this week
-                      </p>
-                      <ul className="space-y-2.5 text-sm leading-7 text-slate-700">
-                        {subtypeBullets.slice(0, 2).map((bullet) => (
-                          <li key={bullet} className="flex items-start gap-2">
-                            <span className="mt-[11px] h-1.5 w-1.5 rounded-full bg-[#D8A7A7]" />
-                            <span>{bullet}</span>
-                          </li>
-                        ))}
-                      </ul>
+            {subtypePresentation || composition.bars.length > 0 ? (
+              <section className="grid gap-8 xl:grid-cols-[minmax(0,1.18fr)_minmax(320px,0.82fr)] xl:items-start xl:gap-9">
+                {subtypePresentation ? (
+                  <section className="rounded-[34px] border border-[#E3E6EA] bg-[#EEF1F4] px-9 py-9 shadow-[var(--surface-shadow)] backdrop-blur">
+                    <div className="space-y-2.5">
+                      <h2 className="max-w-3xl font-serif text-[2.5rem] leading-[1.06] text-slate-950">
+                        {subtypePresentation.name}
+                      </h2>
                     </div>
-                  ) : null}
-                </section>
-              ) : (
-                <div />
-              )}
+                    <p className="mt-5 max-w-[42rem] text-[17px] leading-[1.65] text-slate-700">
+                      {subtypePresentation.overviewLine}
+                    </p>
+                    {subtypeBullets.length > 0 ? (
+                      <div className="mt-6 max-w-[42rem]">
+                        <div className="h-px w-full max-w-[30rem] bg-[#8D96A8]/40" />
+                        <ul className="mt-6 space-y-4.5 text-[17px] leading-[1.6] text-slate-700">
+                          {subtypeBullets.slice(0, 2).map((bullet) => (
+                            <li key={bullet} className="flex items-start gap-2">
+                              <span className="mt-[0.7em] h-1.5 w-1.5 rounded-full bg-[#B68B98]" />
+                              <span>{bullet}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                  </section>
+                ) : null}
 
-              {composition.bars.length > 0 ? (
-                <section className="rounded-[32px] border border-[#E3E6EA] bg-[#EEF1F4] px-7 py-6 shadow-[var(--surface-shadow)] backdrop-blur">
-                  <h2 className="font-serif text-[2rem] leading-tight text-slate-950">
-                    Week composition
-                  </h2>
-                  <div className="mt-5 space-y-4">
-                    {composition.bars.map((item) => (
-                      <article key={item.label} className="space-y-2.5">
-                        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-4">
-                          <p className="text-sm font-semibold text-slate-900">{item.label}</p>
-                          <p className="text-right text-sm tabular-nums text-slate-600">
-                            {formatMinutesAsHours(item.minutes)}
-                          </p>
-                        </div>
-                        <div className="h-2 overflow-hidden rounded-full bg-white">
-                          <div
-                            className="h-full rounded-full bg-[#2C2A3A]"
-                            style={{ width: `${item.percent <= 0 ? 0 : Math.min(100, item.percent)}%` }}
-                          />
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                  <p className="mt-5 text-sm leading-6 text-slate-600">
-                    Open capacity: <span className="font-medium text-slate-800">{formatMinutesAsHours(composition.openMinutes)}</span> across the week
-                  </p>
-                </section>
-              ) : (
-                <div />
-              )}
-            </section>
-
-            <section>
-              {recoveryIslands && recoveryIslands.detectableRecoveryBlockCount >= 2 ? (
-                <section className="rounded-[32px] border border-[#C9D7CC] bg-[linear-gradient(180deg,rgba(233,241,234,0.98),rgba(226,236,227,0.94))] px-6 py-6 shadow-[var(--surface-shadow)] backdrop-blur xl:mx-auto xl:max-w-[76rem] xl:px-8 xl:py-6">
-                  <div className="grid gap-5 xl:grid-cols-[380px_minmax(0,1fr)] xl:items-center">
-                    <aside className="rounded-[24px] border border-[#D0DBD1] bg-[rgba(255,255,255,0.66)] px-5 py-4">
-                      <p className="text-sm font-semibold text-slate-900">
-                        Through your profile
+                {composition.bars.length > 0 ? (
+                  <section className="rounded-[32px] border border-[#E8E2DB] bg-white px-8 py-7 shadow-[var(--surface-shadow)] backdrop-blur">
+                    <div className="pb-1.5">
+                      <h2 className="font-serif text-[2.15rem] leading-tight text-slate-950">
+                        {SITE_COPY.dashboard.COPY_DASHBOARD_COMPOSITION_TITLE_01}
+                      </h2>
+                    </div>
+                    <div className="mt-6 space-y-5">
+                      {composition.bars.map((item) => (
+                        <article key={item.label} className="space-y-2.5">
+                          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-4">
+                            <p className="text-[15px] font-semibold text-slate-900">{item.label}</p>
+                            <p className="text-right text-[15px] tabular-nums text-slate-500">
+                              {formatMinutesAsHours(item.minutes)}
+                            </p>
+                          </div>
+                          <div className="h-2.5 overflow-hidden rounded-full bg-[rgba(40,38,55,0.10)]">
+                            <div
+                              className="h-full rounded-full bg-[#2C2A3A]"
+                              style={{
+                                width: `${item.percent <= 0 ? 0 : Math.max(8, Math.min(100, item.percent))}%`,
+                              }}
+                            />
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                    <div className="mt-6 border-t border-[#EEE7DF] pt-4">
+                      <p className="text-sm leading-6 text-slate-600">
+                      <span className="font-medium text-slate-800">
+                        {SITE_COPY.dashboard.COPY_DASHBOARD_COMPOSITION_OPEN_CAPACITY_01(
+                          formatMinutesAsHours(composition.openMinutes),
+                        )}
+                      </span>
                       </p>
-                      <div className="mt-3 space-y-2.5 text-[14px] leading-6 text-slate-700">
+                    </div>
+                  </section>
+                ) : null}
+              </section>
+            ) : null}
+
+            {recoveryIslands && recoveryIslands.detectableRecoveryBlockCount >= 2 ? (
+              <section className="mt-12 rounded-[32px] border border-[#C9D7CC] bg-[linear-gradient(180deg,rgba(233,241,234,0.98),rgba(226,236,227,0.94))] px-7 py-7 shadow-[var(--surface-shadow)] backdrop-blur xl:mx-auto xl:max-w-[76rem] xl:px-9 xl:py-8">
+                <div className="grid gap-6 xl:grid-cols-[470px_minmax(0,1fr)] xl:items-center">
+                  <aside className="rounded-[24px] border border-[#D0DBD1] bg-[rgba(255,255,255,0.72)] px-6 py-5 shadow-[0_10px_24px_-20px_rgba(76,94,84,0.28)]">
+                    <div className="space-y-2.5">
+                      <p className="text-sm font-semibold text-slate-900">
+                        {SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_PROFILE_TITLE_01}
+                      </p>
+                      <div className="space-y-2.5 text-[14px] leading-6 text-slate-700">
                         <p>{recoveryIslands.profileBestWith}</p>
                         <div className="flex items-start gap-2">
                           <span className="mt-2 h-1.5 w-1.5 rounded-full bg-[#7BAA8D]" />
@@ -751,81 +770,75 @@ export default async function DashboardPage({
                           <p>{recoveryIslands.profilePriority}</p>
                         </div>
                       </div>
-                    </aside>
-
-                    <div className="space-y-2 xl:pl-4">
-                      <h2 className="font-serif text-[1.95rem] leading-tight text-slate-900">
-                        Recovery Islands
-                      </h2>
-                      <p className="max-w-3xl text-[15px] leading-[1.65] text-slate-700">
-                        {recoveryIslands.summary}
-                      </p>
-                      <p className="max-w-3xl text-[15px] leading-[1.65] text-slate-600">
-                        {recoveryIslands.supportingLine}
-                      </p>
                     </div>
-                  </div>
+                  </aside>
 
-                  <div className="mt-5">
-                    <RecoveryIslandsVisual days={recoveryIslands.days} />
+                  <div className="space-y-2 xl:pl-4">
+                    <h2 className="font-serif text-[1.85rem] leading-tight text-slate-900">
+                      {SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_TITLE_01}
+                    </h2>
+                    <p className="max-w-3xl text-[15px] leading-[1.65] text-slate-700">
+                      {recoveryIslands.summary}
+                    </p>
+                    <p className="max-w-3xl text-[15px] leading-[1.65] text-slate-600">
+                      {recoveryIslands.supportingLine}
+                    </p>
                   </div>
+                </div>
 
-                  <div className="mt-5 grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)] xl:items-start">
-                    <div className="rounded-[22px] border border-[#D0DBD1] bg-[rgba(255,255,255,0.72)] px-5 py-4">
-                      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-                        <div>
-                          <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
-                            Scheduled recovery
-                          </p>
-                          <p className="mt-2 font-serif text-[2rem] leading-none text-slate-900">
-                            {Math.round((recoveryIslands.totalRecoveryMinutes / 60) * 10) / 10}h
-                          </p>
-                          <p className="mt-1 text-[13px] leading-6 text-slate-500">
-                            across the week
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
-                            Most restorative day
-                          </p>
-                          <p className="mt-2 font-serif text-[1.75rem] leading-none text-slate-900">
-                            {recoveryIslands.mostRestorativeDay?.label ?? "None yet"}
-                          </p>
-                          <p className="mt-1 text-[13px] leading-6 text-slate-500">
-                            {recoveryIslands.mostRestorativeDay
-                              ? `${formatMinutesAsHours(recoveryIslands.mostRestorativeDay.totalRecoveryMinutes)} visible`
-                              : "No visible island"}
-                          </p>
-                        </div>
+                <div className="mt-7">
+                  <RecoveryIslandsVisual days={recoveryIslands.days} />
+                </div>
+
+                <div className="mt-7 grid gap-5 xl:grid-cols-[300px_minmax(0,1fr)] xl:items-start">
+                  <div className="rounded-[22px] border border-[#D0DBD1] bg-[rgba(255,255,255,0.76)] px-6 py-5">
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                          {SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_STAT_TITLE_01}
+                        </p>
+                        <p className="mt-1.5 font-serif text-[2rem] leading-none text-slate-900">
+                          {Math.round((recoveryIslands.totalRecoveryMinutes / 60) * 10) / 10}h
+                        </p>
+                        <p className="mt-1 text-[13px] leading-6 text-slate-500">
+                          {SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_STAT_SUBTITLE_01}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">
+                          {SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_STAT_TITLE_02}
+                        </p>
+                        <p className="mt-1.5 font-serif text-[1.75rem] leading-none text-slate-900">
+                          {recoveryIslands.mostRestorativeDay?.label ??
+                            SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_STAT_EMPTY_01}
+                        </p>
+                        <p className="mt-1 text-[13px] leading-6 text-slate-500">
+                          {recoveryIslands.mostRestorativeDay
+                            ? `${formatMinutesAsHours(recoveryIslands.mostRestorativeDay.totalRecoveryMinutes)} visible`
+                            : SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_STAT_EMPTY_02}
+                        </p>
                       </div>
                     </div>
-
-                    <RecoveryLegendCard />
                   </div>
 
-                  <div className="mt-4 text-center text-[12px] leading-6 text-slate-500">
-                    <span>
-                      These are islands, not quotas. Small moments add up.
-                    </span>
-                  </div>
-                </section>
-              ) : (
-                <div />
-              )}
-            </section>
+                  <RecoveryLegendCard />
+                </div>
+
+                <div className="mt-5 text-center text-[12px] leading-6 text-slate-500">
+                  <span>{SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_FOOTNOTE_01}</span>
+                </div>
+              </section>
+            ) : null}
 
             {cognitiveLoadSummary && cognitiveLoadSummary.score > 85 ? (
-              <section className="rounded-[32px] border border-[#E8E2DB] bg-white px-7 py-7 text-slate-900 shadow-[var(--surface-shadow)]">
-                <div className="space-y-2">
+              <section className="rounded-[32px] border border-[#E8E2DB] bg-white px-7 py-6 text-slate-900 shadow-[var(--surface-shadow)]">
+                <div className="space-y-1.5">
                   <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#866477]">
-                    Interventions
+                    {SITE_COPY.dashboard.COPY_DASHBOARD_INTERVENTIONS_TITLE_01}
                   </p>
-                  <h2 className="font-serif text-3xl leading-tight text-slate-950">
-                    How to change the trajectory
-                  </h2>
                 </div>
                 {balanceFeedback.length > 0 ? (
-                  <div className="mt-4 space-y-2">
+                  <div className="mt-3.5 space-y-2">
                     {balanceFeedback.slice(0, 2).map((item) => (
                       <p key={item.title} className="text-sm leading-7 text-slate-600">
                         <span className="font-semibold text-slate-900">{item.title}:</span> {item.text}
@@ -833,30 +846,16 @@ export default async function DashboardPage({
                     ))}
                   </div>
                 ) : null}
-                <div className="mt-6 space-y-4">
-                  {interventions.map((suggestion, index) => (
-                    <article key={`${index}-${suggestion.label}`} className="flex items-start gap-4">
-                      <span className="text-sm font-semibold text-[#866477]">
-                        0{index + 1}
-                      </span>
-                      <div className="space-y-1">
-                        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
-                          {suggestion.label}
-                        </p>
-                        <p className="text-sm leading-7 text-slate-700">{suggestion.text}</p>
-                      </div>
-                    </article>
-                  ))}
-                </div>
               </section>
             ) : null}
           </section>
         ) : (
           <section className="rounded-[28px] border border-[#E8E2DB] bg-white p-6 shadow-[var(--surface-shadow)] backdrop-blur">
-            <h2 className="font-serif text-2xl leading-tight text-slate-900">No report yet</h2>
+            <h2 className="font-serif text-2xl leading-tight text-slate-900">
+              {SITE_COPY.dashboard.COPY_DASHBOARD_EMPTY_NO_REPORT_TITLE_01}
+            </h2>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-              Run your first fresh read of the week from the calendars you include in Settings. If a cached
-              report exists later, the dashboard will show it until you re-analyze or it expires.
+              {SITE_COPY.dashboard.COPY_DASHBOARD_EMPTY_NO_REPORT_BODY_01}
             </p>
           </section>
         )}

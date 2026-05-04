@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { onboardingSchema } from "@/lib/forms";
+import { SITE_COPY } from "@/lib/copy";
 import { scoreQuizAnswers } from "@/lib/onboarding";
 import {
   PROFILE_SAVE_TRACE_COOKIE,
@@ -82,7 +83,7 @@ export async function submitOnboardingAction(
   if (typeof rawAnswers !== "string") {
     return {
       status: "error",
-      message: "The quiz submission was incomplete.",
+      message: SITE_COPY.onboarding.COPY_ONBOARDING_ERROR_INCOMPLETE_SUBMISSION_01,
     };
   }
 
@@ -93,7 +94,7 @@ export async function submitOnboardingAction(
   if (!parsedAnswers.success) {
     return {
       status: "error",
-      message: "Please answer every question before continuing.",
+      message: SITE_COPY.onboarding.COPY_ONBOARDING_ERROR_INCOMPLETE_ANSWERS_01,
     };
   }
 
@@ -104,7 +105,7 @@ export async function submitOnboardingAction(
   } catch {
     return {
       status: "error",
-      message: "The quiz answers could not be scored. Please try again.",
+      message: SITE_COPY.onboarding.COPY_ONBOARDING_ERROR_SCORE_FAILED_01,
     };
   }
 

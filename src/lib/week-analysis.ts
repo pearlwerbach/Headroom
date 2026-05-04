@@ -7,6 +7,7 @@ import {
   DEFAULT_WAKE_HOUR,
   WEEK_ANALYSIS_CACHE_HOURS,
 } from "@/lib/constants";
+import { SITE_COPY } from "@/lib/copy";
 import { getPlanningReadyCognitiveProfile } from "@/lib/cognitive-profile";
 import type {
   ClassifiedWeekEvent,
@@ -655,66 +656,81 @@ function getDailyOperatingModeCopy(
   switch (mode) {
     case "open_capacity":
       return {
-        title: "Open Capacity Day",
-        meaning:
-          "Use this day to make real progress and prioritize your hardest work.",
+        title: SITE_COPY.dashboard.COPY_DASHBOARD_MODE_TITLE_OPEN_01,
+        meaning: SITE_COPY.dashboard.COPY_DASHBOARD_MODE_MEANING_OPEN_01,
         actions: [
-          "Place your hardest or most cognitively demanding work in the clearest block.",
-          "Keep admin and follow-through outside the best runway.",
-          "Use the day early, before later pressure makes the week feel tighter.",
+          SITE_COPY.dashboard.COPY_DASHBOARD_MODE_ACTION_OPEN_01,
+          SITE_COPY.dashboard.COPY_DASHBOARD_MODE_ACTION_OPEN_02,
+          SITE_COPY.dashboard.COPY_DASHBOARD_MODE_ACTION_OPEN_03,
         ],
-        reframe: "If you use this kind of day well, the rest of the week usually gets easier to carry.",
+        reframe: SITE_COPY.dashboard.COPY_DASHBOARD_MODE_REFRAME_OPEN_01,
       };
     case "follow_through":
       return {
-        title: "Follow-Through Day",
-        meaning:
-          "Move through what is scheduled and do not force depth between transitions.",
+        title: SITE_COPY.dashboard.COPY_DASHBOARD_MODE_TITLE_FOLLOW_01,
+        meaning: SITE_COPY.dashboard.COPY_DASHBOARD_MODE_MEANING_FOLLOW_01,
         actions: [
-          "Let commitments, follow-through, and lighter work be the main job of the day.",
-          "Use smaller openings for review, admin, setup, or completion.",
-          "Protect momentum without expecting a deep-work day from a scattered schedule.",
+          SITE_COPY.dashboard.COPY_DASHBOARD_MODE_ACTION_FOLLOW_01,
+          SITE_COPY.dashboard.COPY_DASHBOARD_MODE_ACTION_FOLLOW_02,
+          SITE_COPY.dashboard.COPY_DASHBOARD_MODE_ACTION_FOLLOW_03,
         ],
-        reframe: "A good Follow-Through Day keeps the week moving without making you fight the structure.",
+        reframe: SITE_COPY.dashboard.COPY_DASHBOARD_MODE_REFRAME_FOLLOW_01,
       };
     case "recover":
       return {
-        title: "Recover Day",
-        meaning:
-          "Let the system reset - recovery today supports the rest of the week.",
+        title: SITE_COPY.dashboard.COPY_DASHBOARD_MODE_TITLE_RECOVER_01,
+        meaning: SITE_COPY.dashboard.COPY_DASHBOARD_MODE_MEANING_RECOVER_01,
         actions: [
-          "Let rest, exercise, care, or quieter catch-up take priority.",
-          "If work needs to happen, keep it concrete, bounded, and lower-stakes.",
-          "Treat open time as margin to protect, not pressure to fill.",
+          SITE_COPY.dashboard.COPY_DASHBOARD_MODE_ACTION_RECOVER_01,
+          SITE_COPY.dashboard.COPY_DASHBOARD_MODE_ACTION_RECOVER_02,
+          SITE_COPY.dashboard.COPY_DASHBOARD_MODE_ACTION_RECOVER_03,
         ],
-        reframe: "Protecting capacity on a Recover Day is part of the plan, not a detour from it.",
+        reframe: SITE_COPY.dashboard.COPY_DASHBOARD_MODE_REFRAME_RECOVER_01,
       };
     case "fragmented":
       return {
-        title: "Fragmented Day",
-        meaning:
-          "Stay modular - deep work will be harder than it looks.",
+        title: SITE_COPY.dashboard.COPY_DASHBOARD_MODE_TITLE_FRAGMENTED_01,
+        meaning: SITE_COPY.dashboard.COPY_DASHBOARD_MODE_MEANING_FRAGMENTED_01,
         actions: [
-          "Keep tasks small, modular, and easy to restart between commitments.",
-          "Do not spend your best energy trying to force depth into broken openings.",
-          "Use the day for review, prep, admin, and bounded follow-through instead.",
+          SITE_COPY.dashboard.COPY_DASHBOARD_MODE_ACTION_FRAGMENTED_01,
+          SITE_COPY.dashboard.COPY_DASHBOARD_MODE_ACTION_FRAGMENTED_02,
+          SITE_COPY.dashboard.COPY_DASHBOARD_MODE_ACTION_FRAGMENTED_03,
         ],
-        reframe: "This is not a depth-friendly day, even if the calendar looks more open than it feels.",
+        reframe: SITE_COPY.dashboard.COPY_DASHBOARD_MODE_REFRAME_FRAGMENTED_01,
       };
     case "protected_work":
     default:
       return {
-        title: "Protected Work Day",
-        meaning:
-          "Protect one real work block - that is the win.",
+        title: SITE_COPY.dashboard.COPY_DASHBOARD_MODE_TITLE_PROTECTED_01,
+        meaning: SITE_COPY.dashboard.COPY_DASHBOARD_MODE_MEANING_PROTECTED_01,
         actions: [
-          `Choose ${protectedWindowLabel} and decide in advance what belongs there.`,
-          "Let the rest of the day absorb lighter tasks, follow-through, and transitions.",
-          "Keep extra demands from leaking into the one block that can still do real work.",
+          SITE_COPY.dashboard.COPY_DASHBOARD_MODE_ACTION_PROTECTED_01(protectedWindowLabel),
+          SITE_COPY.dashboard.COPY_DASHBOARD_MODE_ACTION_PROTECTED_02,
+          SITE_COPY.dashboard.COPY_DASHBOARD_MODE_ACTION_PROTECTED_03,
         ],
-        reframe: "The goal is not to do everything today, but to keep one part of the day genuinely usable.",
+        reframe: SITE_COPY.dashboard.COPY_DASHBOARD_MODE_REFRAME_PROTECTED_01,
       };
   }
+}
+
+export function rehydrateDailyLoadScoreCopy(
+  metrics: WeekAnalysisMetrics,
+  profile: CognitiveProfileSnapshot,
+): WeekAnalysisMetrics {
+  return {
+    ...metrics,
+    dailyLoadScores: metrics.dailyLoadScores.map((day) => {
+      const modeCopy = getDailyOperatingModeCopy(day.operatingMode, profile);
+
+      return {
+        ...day,
+        modeTitle: modeCopy.title,
+        modeMeaning: modeCopy.meaning,
+        modeActions: modeCopy.actions,
+        modeReframe: modeCopy.reframe,
+      };
+    }),
+  };
 }
 
 function rebalanceWeeklyOperatingModes(
@@ -1935,10 +1951,15 @@ export function createWeekAnalysisReport(
   } satisfies WeekAnalysisReportSnapshot;
 }
 
-function normalizeReport(report: WeekAnalysisRow) {
+function normalizeReport(
+  report: WeekAnalysisRow,
+  profile?: CognitiveProfileSnapshot | null,
+) {
   if (!report) {
     return null;
   }
+
+  const derivedMetrics = parseMetrics(report.derivedMetrics);
 
   return {
     analyzedAt: report.analyzedAt,
@@ -1946,7 +1967,9 @@ function normalizeReport(report: WeekAnalysisRow) {
     observations: report.observations,
     suggestions: report.suggestions,
     classifiedEvents: parseClassifiedEvents(report.classifiedEvents),
-    derivedMetrics: parseMetrics(report.derivedMetrics),
+    derivedMetrics: profile
+      ? rehydrateDailyLoadScoreCopy(derivedMetrics, profile)
+      : derivedMetrics,
   } satisfies WeekAnalysisReportSnapshot;
 }
 
@@ -2155,7 +2178,7 @@ export async function getWeekAnalysisDashboardState(userId: string): Promise<Wee
     googleConnected,
     selectedCalendarIds,
     availableCalendars,
-    report: googleConnected ? normalizeReport(report) : null,
+    report: googleConnected ? normalizeReport(report, normalizedProfile) : null,
   };
 }
 

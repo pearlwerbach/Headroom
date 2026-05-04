@@ -1,4 +1,5 @@
 import type { ProfileSnapshot } from "@/lib/profile-summary";
+import { SITE_COPY } from "@/lib/copy";
 import { getProfileDisplayData } from "@/lib/profile-display";
 
 interface ProfileReportProps {
@@ -73,7 +74,7 @@ export function ProfileReport({ profile, actions }: ProfileReportProps) {
       <section className="relative overflow-hidden rounded-[38px] border border-[#e8e2db] bg-white px-7 py-8 shadow-[var(--surface-shadow)] sm:px-8 sm:py-9 lg:px-10">
         <div className="relative max-w-4xl space-y-4">
           <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#8a6675]">
-            Work &amp; Recovery Profile
+            {SITE_COPY.profile.COPY_PROFILE_REPORT_EYEBROW_01}
           </p>
           <h1 className="font-serif text-[clamp(2.65rem,5vw,4.8rem)] leading-[0.94] tracking-[-0.02em] text-[#1a2433]">
             {display.title}
@@ -89,11 +90,10 @@ export function ProfileReport({ profile, actions }: ProfileReportProps) {
           <div className="mb-6 flex items-end justify-between gap-4">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8a6675]">
-                How you work
+                {SITE_COPY.profile.COPY_PROFILE_REPORT_SECTION_HOW_YOU_WORK_01}
               </p>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                These signals stay the same across weeks. They describe the conditions that make
-                your time feel usable or deceptively difficult.
+                {SITE_COPY.profile.COPY_PROFILE_REPORT_SECTION_HOW_YOU_WORK_BODY_01}
               </p>
             </div>
           </div>
@@ -116,7 +116,7 @@ export function ProfileReport({ profile, actions }: ProfileReportProps) {
           <div className="space-y-5">
             <div className="space-y-3">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8a6675]">
-                Cognitive subtype
+                {SITE_COPY.profile.COPY_PROFILE_REPORT_SECTION_SUBTYPE_01}
               </p>
               <h2 className="font-serif text-[2rem] leading-tight text-[#1c2432]">
                 {display.title}
@@ -126,14 +126,12 @@ export function ProfileReport({ profile, actions }: ProfileReportProps) {
 
             <div className="rounded-[24px] border border-[#e8e2db] bg-[#faf6f1] px-4 py-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8a6675]">
-                What this means
+                {SITE_COPY.profile.COPY_PROFILE_REPORT_SECTION_WHAT_THIS_MEANS_01}
               </p>
               <p className="mt-3 font-serif text-[1.45rem] leading-tight text-[#1c2432]">
                 {display.whatThisMeans}
               </p>
             </div>
-
-            <BulletList items={display.keepInMind.slice(0, 2)} tone="rose" />
           </div>
         </aside>
       </section>
@@ -143,10 +141,10 @@ export function ProfileReport({ profile, actions }: ProfileReportProps) {
           <div className="space-y-4">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8a6675]">
-                What to keep in mind
+                {SITE_COPY.profile.COPY_PROFILE_REPORT_SECTION_KEEP_IN_MIND_01}
               </p>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                The patterns most likely to make a week look manageable on paper but feel tighter in practice.
+                {SITE_COPY.profile.COPY_PROFILE_REPORT_SECTION_KEEP_IN_MIND_BODY_01}
               </p>
             </div>
             <BulletList items={display.keepInMind.slice(0, 4)} tone="sage" />
@@ -157,11 +155,10 @@ export function ProfileReport({ profile, actions }: ProfileReportProps) {
           <div className="space-y-5">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8a6675]">
-                How to plan around this
+                {SITE_COPY.profile.COPY_PROFILE_REPORT_SECTION_PLAN_AROUND_01}
               </p>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                Use these as stable planning defaults when you decide how much structure, setup,
-                and protection a week actually needs.
+                {SITE_COPY.profile.COPY_PROFILE_REPORT_SECTION_PLAN_AROUND_BODY_01}
               </p>
             </div>
 
@@ -187,11 +184,10 @@ export function ProfileReport({ profile, actions }: ProfileReportProps) {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-2">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8a6675]">
-                Next step
+                {SITE_COPY.profile.COPY_PROFILE_REPORT_SECTION_NEXT_STEP_01}
               </p>
               <p className="max-w-2xl text-sm leading-6 text-slate-600">
-                Keep this profile as your planning reference. Use it to interpret the dashboard,
-                protect the right kind of time, and adjust when the week starts to tighten.
+                {SITE_COPY.profile.COPY_PROFILE_REPORT_SECTION_NEXT_STEP_BODY_01}
               </p>
             </div>
             <div className="flex flex-wrap gap-3">{actions}</div>

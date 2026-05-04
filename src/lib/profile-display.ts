@@ -1,4 +1,5 @@
 import { getSubtypePresentation } from "@/lib/profile-presentation";
+import { SITE_COPY } from "@/lib/copy";
 import type { SubtypeName } from "@/lib/profile-model";
 import { getProfileModel, type ProfileSnapshot } from "@/lib/profile-summary";
 
@@ -53,8 +54,8 @@ export function getProfileDisplayData(profile: ProfileSnapshot): ProfileDisplayD
       label: signal.label,
       value: signal.value,
       numericValue: getNumericValue(signal.value),
-      low: "Low",
-      high: "High",
+      low: SITE_COPY.profile.COPY_PROFILE_REPORT_SIGNAL_LOW_01,
+      high: SITE_COPY.profile.COPY_PROFILE_REPORT_SIGNAL_HIGH_01,
       implication: signal.description,
     })),
     keepInMind: model.keepInMind,

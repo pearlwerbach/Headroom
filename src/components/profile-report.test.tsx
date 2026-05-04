@@ -34,7 +34,7 @@ function makeProfile(overrides: Partial<ProfileSnapshot> = {}): ProfileSnapshot 
     subtypeDescription:
       "You do your best work when demanding tasks have structure, protection, and enough uninterrupted time.",
     shortSummary:
-      "Protected time matters more than how much open time the week appears to have.",
+      "Your week works best when deep work is protected before smaller commitments fill the space.",
     overloadSensitivity: 4,
     transitionCost: 5,
     deepWorkCapacity: 5,
@@ -69,13 +69,26 @@ describe("ProfileReport", () => {
     expect(screen.getAllByText("Protected-Block Planner")).toHaveLength(2);
     expect(
       screen.getByText(
-        "Your best work depends on protected time, and once a block is broken, depth is harder to recover.",
+        "When a work block gets interrupted, it can be hard to recover the depth that block was meant to support.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "You do your best work when demanding tasks have structure, protection, and enough uninterrupted time.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Your week works best when deep work is protected before smaller commitments fill the space.",
       ),
     ).toBeInTheDocument();
     expect(screen.getByText("How you work")).toBeInTheDocument();
     expect(screen.getByText("Cognitive subtype")).toBeInTheDocument();
     expect(screen.getByText("What to keep in mind")).toBeInTheDocument();
-    expect(screen.getByText("How to plan around this")).toBeInTheDocument();
+    expect(screen.getByText("How to plan")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Open gaps are not always enough for demanding work."),
+    ).toBeInTheDocument();
   });
 
   it("never renders developer-facing debug sections", () => {

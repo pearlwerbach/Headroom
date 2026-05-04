@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Script from "next/script";
-import { ThemeProvider, ThemeSwitcher } from "@/components/theme-provider";
+import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -19,15 +19,13 @@ export default function RootLayout({
         <Script id="theme-init" strategy="beforeInteractive">{`
           (function() {
             try {
-              var theme = localStorage.getItem('headroom-theme') || localStorage.getItem('lilt-theme') || 'deep-indigo';
-              document.documentElement.dataset.theme = theme;
+              document.documentElement.dataset.theme = 'deep-indigo';
             } catch (error) {
               document.documentElement.dataset.theme = 'deep-indigo';
             }
           })();
         `}</Script>
         <ThemeProvider>
-          <ThemeSwitcher />
           {children}
         </ThemeProvider>
       </body>

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { OnboardingLoadingScreen } from "@/components/onboarding-loading-screen";
+import { SITE_COPY } from "@/lib/copy";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 
@@ -16,7 +17,7 @@ export default async function OnboardingAnalyzingPage() {
 
   return (
     <AppShell
-      heading="Analyzing your profile"
+      heading={SITE_COPY.onboarding.COPY_ONBOARDING_ANALYZING_HEADING_01}
       userName={user.name}
     >
       <main>

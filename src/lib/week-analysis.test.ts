@@ -3,6 +3,7 @@ import {
   buildWeekAnalysisRecordData,
   createWeekAnalysisReport,
   normalizeWeekAnalysisMetrics,
+  rehydrateDailyLoadScoreCopy,
   toDisplayLoadScore,
 } from "@/lib/week-analysis";
 import type { ClassifiedWeekEvent, CognitiveProfileSnapshot } from "@/lib/domain";
@@ -15,7 +16,7 @@ function makeProfile(
     subtypeDescription:
       "You do your best work when demanding tasks have structure, protection, and enough uninterrupted time.",
     shortSummary:
-      "Protected time matters more than how much open time the week appears to have.",
+      "Your week works best when deep work is protected before smaller commitments fill the space.",
     overloadSensitivity: 4,
     fragmentationCost: 4,
     transitionCost: 4,
@@ -1387,6 +1388,35 @@ describe("normalizeWeekAnalysisMetrics", () => {
     expect(normalized.dailyLoadScores.map((day) => day.score)).toEqual([31, 52]);
     expect(normalized.dailyLoadDebug[0]?.finalDisplayScore).toBe(31);
     expect(normalized.weeklyLoadDebug.finalWeeklyDisplayScore).toBe(66);
+  });
+
+  it("rehydrates persisted daily mode copy from current source code", () => {
+    const normalized = normalizeWeekAnalysisMetrics({
+      dailyLoadScores: [
+        {
+          label: "Tuesday",
+          date: "2026-04-22T00:00:00.000Z",
+          score: 52,
+          committedHours: 5,
+          operatingMode: "protected_work",
+          modeTitle: "Old title",
+          modeMeaning: "Old meaning",
+          modeActions: ["Old action"],
+          modeReframe: "Old reframe",
+        },
+      ],
+    } as any);
+
+    const rehydrated = rehydrateDailyLoadScoreCopy(normalized, makeProfile());
+
+    expect(rehydrated.dailyLoadScores[0]?.modeTitle).toBe("Protected Work Day");
+    expect(rehydrated.dailyLoadScores[0]?.modeMeaning).toBe(
+      "Protecting one real work block is the win.",
+    );
+    expect(rehydrated.dailyLoadScores[0]?.modeActions[0]).toContain("Choose");
+    expect(rehydrated.dailyLoadScores[0]?.modeReframe).toBe(
+      "The goal is not to do everything today, but to keep one part of the day genuinely usable.",
+    );
   });
 });
 

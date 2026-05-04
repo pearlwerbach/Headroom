@@ -3,6 +3,7 @@ import { unstable_noStore as noStore } from "next/cache";
 import { AppShell } from "@/components/app-shell";
 import { OnboardingQuiz } from "@/components/onboarding-quiz";
 import { ProfileReport } from "@/components/profile-report";
+import { SITE_COPY } from "@/lib/copy";
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 
@@ -34,7 +35,7 @@ export default async function OnboardingPage({
             <div className="space-y-4">
               {completeMode ? (
                 <div className="inline-flex rounded-full border border-[#e3d6c8] bg-[rgba(255,249,242,0.94)] px-4 py-2 text-sm font-semibold text-[#7f6754]">
-                  Profile saved
+                  {SITE_COPY.onboarding.COPY_ONBOARDING_SAVED_BADGE_01}
                 </div>
               ) : null}
               <ProfileReport
@@ -45,25 +46,19 @@ export default async function OnboardingPage({
                       href="/dashboard"
                       className="theme-button-primary inline-flex rounded-full px-5 py-3 text-sm font-semibold transition hover:-translate-y-0.5"
                     >
-                      Open dashboard
+                      {SITE_COPY.onboarding.COPY_ONBOARDING_PROFILE_ACTION_01}
                     </Link>
                     <Link
                       href="/settings"
                       className="inline-flex rounded-full border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-500"
                     >
-                      Open settings
-                    </Link>
-                    <Link
-                      href="/history"
-                      className="inline-flex rounded-full border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-500"
-                    >
-                      View history
+                      {SITE_COPY.onboarding.COPY_ONBOARDING_PROFILE_ACTION_02}
                     </Link>
                     <Link
                       href="/onboarding?edit=1&returnTo=onboarding"
                       className="inline-flex rounded-full border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-500"
                     >
-                      Retake assessment
+                      {SITE_COPY.onboarding.COPY_ONBOARDING_PROFILE_ACTION_04}
                     </Link>
                   </>
                 }
@@ -79,16 +74,16 @@ export default async function OnboardingPage({
             <header className="rounded-[32px] border border-slate-200/70 bg-slate-950 px-6 py-6 text-white shadow-[0_30px_90px_-60px_rgba(15,23,42,0.75)] sm:px-8 sm:py-7 lg:px-10 lg:py-8">
               <div className="max-w-4xl">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-300/90">
-                  HEADROOM
+                  {SITE_COPY.onboarding.COPY_ONBOARDING_BRAND_01}
                 </p>
 
                 <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
                   <h1 className="max-w-3xl font-serif text-[clamp(2rem,3.2vw,3rem)] leading-[0.98] tracking-tight text-white">
-                    Get your personalized cognitive profile
+                    {SITE_COPY.onboarding.COPY_ONBOARDING_HERO_HEADLINE_01}
                   </h1>
 
                   <p className="max-w-xl text-sm text-slate-300 sm:text-[15px]">
-                    Answer a few quick questions to personalize your planning.
+                    {SITE_COPY.onboarding.COPY_ONBOARDING_HERO_BODY_01}
                   </p>
                 </div>
               </div>

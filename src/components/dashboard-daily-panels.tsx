@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { SITE_COPY } from "@/lib/copy";
 import type { DailyLoadScore } from "@/lib/domain";
 import { cn } from "@/lib/utils";
 
@@ -76,6 +77,18 @@ function formatMonthDay(date: Date) {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(date);
 }
 
+function formatWeekRange(start: Date, end: Date) {
+  const sameMonth =
+    start.getFullYear() === end.getFullYear() && start.getMonth() === end.getMonth();
+
+  if (sameMonth) {
+    const month = new Intl.DateTimeFormat("en-US", { month: "short" }).format(start);
+    return `${month} ${start.getDate()}-${end.getDate()}`;
+  }
+
+  return `${formatMonthDay(start)}-${formatMonthDay(end)}`;
+}
+
 function WeekLoadLens({
   weekLoadSummary,
   profilePlanningInsight,
@@ -88,7 +101,7 @@ function WeekLoadLens({
   return (
     <div
       className={cn(
-        "rounded-[28px] border px-5 py-4 shadow-[var(--surface-shadow)]",
+        "rounded-[30px] border px-6 py-5 shadow-[var(--surface-shadow)]",
         getWeekLoadClasses(weekLoadSummary.tone),
         className,
       )}
@@ -96,9 +109,9 @@ function WeekLoadLens({
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#C9C6D3]">
-            Week load
+            {SITE_COPY.dashboard.COPY_DASHBOARD_WEEKLOAD_EYEBROW_01}
           </p>
-          <h2 className="font-serif text-[2.2rem] leading-none text-white">
+          <h2 className="font-serif text-[2.25rem] leading-none text-white">
             {weekLoadSummary.label}
           </h2>
         </div>
@@ -139,25 +152,44 @@ export function DashboardDailyPanels({
         .map((entry, index) => ({ ...entry, index })),
     [days],
   );
+  const trajectoryDateRange = useMemo(() => {
+    const sortedByDate = [...days].sort((left, right) => left.date.getTime() - right.date.getTime());
+    const start = sortedByDate[0]?.date;
+    const end = sortedByDate[sortedByDate.length - 1]?.date;
+
+    if (!start || !end) {
+      return null;
+    }
+
+    return formatWeekRange(start, end);
+  }, [days]);
   const activeIndex = hoveredIndex ?? selectedIndex ?? 0;
   const activeDay = weekDays[activeIndex]?.day ?? null;
 
   return (
-    <section className="relative rounded-[36px] border border-[#E8E2DB] bg-white px-6 pb-6 pt-8 shadow-[var(--surface-shadow)] backdrop-blur md:px-7 md:pb-7 md:pt-9">
+    <section className="relative rounded-[36px] border border-[#E8E2DB] bg-white px-7 pb-8 pt-8 shadow-[var(--surface-shadow)] backdrop-blur md:px-8 md:pb-9 md:pt-9">
       <div className="lg:hidden">
         <WeekLoadLens
           weekLoadSummary={weekLoadSummary}
           profilePlanningInsight={profilePlanningInsight}
+          className="mb-5"
         />
       </div>
 
-      <div className="grid gap-5 lg:min-h-[9.5rem] lg:grid-cols-[minmax(0,1fr)_24.5rem] lg:items-center">
+      <div className="grid gap-5 lg:min-h-[9.5rem] lg:grid-cols-[minmax(0,1fr)_25.5rem] lg:items-center">
         <div className="space-y-1.5">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted-strong)]">
-            Week trajectory
-          </p>
-          <h1 className="font-serif text-4xl leading-tight text-slate-950 md:text-[2.75rem]">
-            How capacity shifts across the week
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted-strong)]">
+              {SITE_COPY.dashboard.COPY_DASHBOARD_TRAJECTORY_EYEBROW_01}
+            </p>
+            {trajectoryDateRange ? (
+              <p className="text-[11px] font-medium tracking-[0.02em] text-slate-500">
+                · {trajectoryDateRange}
+              </p>
+            ) : null}
+          </div>
+          <h1 className="font-serif text-[2.35rem] leading-tight text-slate-950 md:text-[2.65rem]">
+            {SITE_COPY.dashboard.COPY_DASHBOARD_TRAJECTORY_TITLE_01}
           </h1>
         </div>
 
@@ -169,7 +201,7 @@ export function DashboardDailyPanels({
         </div>
       </div>
 
-      <div className="mt-4 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-7 lg:gap-2">
+      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-7 lg:gap-3">
         {weekDays.map(({ day, index }) => {
           const tone = getTone(day.score);
           const active = index === activeIndex;
@@ -184,7 +216,7 @@ export function DashboardDailyPanels({
               onBlur={() => setHoveredIndex(null)}
               onClick={() => setSelectedIndex(index)}
               className={cn(
-                "grid min-h-[8.75rem] w-full gap-3 rounded-[22px] border px-3.5 py-3.5 text-left transition",
+                "grid min-h-[8.85rem] w-full gap-3 rounded-[22px] border px-4 py-4 text-left transition",
                 tone.row,
                 active
                   ? "shadow-[var(--surface-shadow)] ring-1 ring-[#B7A9D6]/60"
@@ -215,7 +247,7 @@ export function DashboardDailyPanels({
                 </span>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <span
                   className={cn(
                     "inline-flex rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em]",
@@ -236,56 +268,62 @@ export function DashboardDailyPanels({
         })}
       </div>
 
-      <div className="mt-5 rounded-[28px] border border-[#E8E2DB] bg-[#EFE7DF] px-5 py-5 md:px-6">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div className="space-y-2">
+      <div className="mt-6 rounded-[28px] border border-[#E8E2DB] bg-[#F5F1EB] px-6 py-6 md:px-7 md:py-6.5">
+        <div className="space-y-4">
+          <div className="space-y-3">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--muted-strong)]">
-              What today supports
+              {SITE_COPY.dashboard.COPY_DASHBOARD_TODAY_SUPPORTS_01}
             </p>
             {weekTrajectorySummary ? (
-              <p className="max-w-3xl text-sm leading-7 text-slate-600">
-                {weekTrajectorySummary.headline}
-              </p>
-            ) : null}
-            {activeDay ? (
-              <>
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-base font-semibold text-slate-900">{activeDay.label}</p>
-                  <span
-                    className={cn(
-                      "inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]",
-                      getModeClasses(activeDay.operatingMode),
-                    )}
-                  >
-                    {activeDay.modeTitle}
-                  </span>
-                  <span className="text-sm font-medium text-slate-500">Load {activeDay.score}</span>
-                </div>
-                <p className="max-w-3xl text-[15px] leading-7 text-slate-700">
-                  {activeDay.modeMeaning}
+              <div className="max-w-3xl border-l-[3px] border-[#AEBEAF] pl-4">
+                <p className="max-w-2xl text-[16px] leading-[1.65] text-[#1F1F23]">
+                  {weekTrajectorySummary.headline}
                 </p>
-              </>
+              </div>
             ) : null}
           </div>
+          {activeDay ? (
+            <>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-base font-semibold text-[rgba(31,31,35,0.84)]">{activeDay.label}</p>
+                <span
+                  className={cn(
+                    "inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]",
+                    getModeClasses(activeDay.operatingMode),
+                  )}
+                >
+                  {activeDay.modeTitle}
+                </span>
+                <span className="text-sm font-medium text-[rgba(31,31,35,0.7)]">
+                  {SITE_COPY.dashboard.COPY_DASHBOARD_DAY_LOAD_LABEL_01(activeDay.score)}
+                </span>
+              </div>
+              <p className="max-w-3xl text-[17px] leading-[1.6] text-[#1F1F23]">
+                {activeDay.modeMeaning}
+              </p>
+            </>
+          ) : null}
         </div>
 
         {activeDay ? (
-          <div className="mt-4 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-            <ul className="space-y-2 text-sm leading-7 text-slate-700">
+          <div className="mt-6 grid gap-5 xl:grid-cols-[1.02fr_0.98fr] xl:items-start xl:gap-9">
+            <ul className="space-y-4 text-[15px] leading-[1.65] text-[rgba(31,31,35,0.72)]">
               {activeDay.modeActions.slice(0, 2).map((action) => (
                 <li key={action} className="flex items-start gap-2">
-                  <span className="mt-[11px] h-1.5 w-1.5 rounded-full bg-slate-400" />
+                  <span className="mt-[0.7em] h-1.5 w-1.5 rounded-full bg-[#98AA9A]" />
                   <span>{action}</span>
                 </li>
               ))}
             </ul>
-            <p className="max-w-2xl text-sm leading-7 text-slate-500 lg:pl-4">
-              {activeDay.modeReframe}
-            </p>
+            <div className="border-t border-[rgba(31,31,35,0.12)] pt-4 xl:mt-0 xl:self-start">
+              <p className="max-w-2xl text-sm italic leading-[1.65] text-[rgba(31,31,35,0.56)]">
+                {activeDay.modeReframe}
+              </p>
+            </div>
           </div>
         ) : (
-          <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-500">
-            Hover or tap a day above to see what kind of effort it can realistically support.
+          <p className="mt-4 max-w-3xl text-sm leading-7 text-[rgba(31,31,35,0.56)]">
+            {SITE_COPY.dashboard.COPY_DASHBOARD_DAY_EMPTY_01}
           </p>
         )}
       </div>

@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import {
   Activity,
   BookOpen,
@@ -6,6 +7,7 @@ import {
   Users,
 } from "lucide-react";
 import { DEFAULT_SLEEP_HOUR, DEFAULT_WAKE_HOUR } from "@/lib/constants";
+import { SITE_COPY } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
 export interface RecoveryIslandSegment {
@@ -33,17 +35,17 @@ const SEGMENT_TONES: Record<RecoveryIslandSegment["tone"], string> = {
 };
 
 const LEGEND_ITEMS: Array<{ tone: RecoveryIslandSegment["tone"]; label: string }> = [
-  { tone: "exercise", label: "Exercise" },
-  { tone: "social", label: "Social support" },
-  { tone: "care", label: "Meals / care" },
-  { tone: "rest", label: "Explicit rest" },
+  { tone: "exercise", label: SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_LEGEND_LABEL_01 },
+  { tone: "social", label: SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_LEGEND_LABEL_02 },
+  { tone: "care", label: SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_LEGEND_LABEL_03 },
+  { tone: "rest", label: SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_LEGEND_LABEL_04 },
 ];
 
 const LEGEND_DESCRIPTIONS: Record<RecoveryIslandSegment["tone"], string> = {
-  exercise: "Movement that helps your system reset.",
-  social: "Connection that restores balance and perspective.",
-  care: "Meals and care routines that support recovery.",
-  rest: "Planned rest that protects your capacity.",
+  exercise: SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_LEGEND_BODY_01,
+  social: SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_LEGEND_BODY_02,
+  care: SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_LEGEND_BODY_03,
+  rest: SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_LEGEND_BODY_04,
   open: "Breathing room that creates space to reset.",
 };
 
@@ -71,10 +73,6 @@ function getSegmentZone(segment: RecoveryIslandSegment) {
     return "morning";
   }
 
-  if (midpoint < 480) {
-    return "midday";
-  }
-
   if (midpoint < 660) {
     return "afternoon";
   }
@@ -82,27 +80,25 @@ function getSegmentZone(segment: RecoveryIslandSegment) {
   return "evening";
 }
 
+type RecoveryZone = "morning" | "afternoon" | "evening";
+type PositionedSegment = {
+  segment: RecoveryIslandSegment;
+  style: {
+    left: string;
+    width: string;
+  };
+};
+
 function buildSegmentLayouts(segments: RecoveryIslandSegment[]) {
   const totalBandMinutes = (DEFAULT_SLEEP_HOUR - DEFAULT_WAKE_HOUR) * 60;
-  const zoneBase: Record<string, number> = {
-    morning: 0,
-    midday: 25,
-    afternoon: 50,
-    evening: 75,
+  const zoneFrames: Record<RecoveryZone, { left: number; width: number }> = {
+    morning: { left: 2, width: 30 },
+    afternoon: { left: 35, width: 30 },
+    evening: { left: 68, width: 30 },
   };
-  const zoneStartMinute: Record<string, number> = {
-    morning: 0,
-    midday: 240,
-    afternoon: 480,
-    evening: 660,
-  };
-  const zoneSpan: Record<string, number> = {
-    morning: 240,
-    midday: 240,
-    afternoon: 180,
-    evening: 300,
-  };
-
+  const minWidthPercent = 15.5;
+  const maxWidthPercent = 21;
+  const pillGapPercent = 1.35;
   const priority = (segment: RecoveryIslandSegment) => {
     if (segment.tone === "open") return 0;
     if (segment.emphasis === "tentative") return 1;
@@ -123,59 +119,67 @@ function buildSegmentLayouts(segments: RecoveryIslandSegment[]) {
 
     return (right.endMinute - right.startMinute) - (left.endMinute - left.startMinute);
   });
-  const rowRightEdges = [-2, -2];
+  const byZone = sorted.reduce<Record<RecoveryZone, RecoveryIslandSegment[]>>(
+    (groups, segment) => {
+      groups[getSegmentZone(segment)].push(segment);
+      return groups;
+    },
+    { morning: [], afternoon: [], evening: [] },
+  );
 
-  return sorted.map((segment) => {
-    const durationMinutes = Math.max(0, segment.endMinute - segment.startMinute);
-    const zone = getSegmentZone(segment);
-    const baseLeft = zoneBase[zone];
-    const offsetWithinZone = Math.max(
-      0,
-      Math.min(
-        7,
-        ((segment.startMinute - zoneStartMinute[zone]) / zoneSpan[zone]) * 7,
-      ),
-    );
-    let widthPercent = Math.max(
-      14,
-      Math.min(
-        22,
-        14 + ((durationMinutes / totalBandMinutes) * 100) * 0.42,
-      ),
-    );
+  const positioned: PositionedSegment[] = [];
 
-    let leftPercent = baseLeft + offsetWithinZone;
-    let rowIndex = 0;
-    const gap = 1.2;
+  (Object.keys(zoneFrames) as RecoveryZone[]).forEach((zone) => {
+    const zoneSegments = byZone[zone];
 
-    if (leftPercent < rowRightEdges[0] + gap) {
-      rowIndex = leftPercent >= rowRightEdges[1] + gap ? 1 : 0;
+    if (zoneSegments.length === 0) {
+      return;
     }
 
-    if (leftPercent < rowRightEdges[rowIndex] + gap) {
-      leftPercent = rowRightEdges[rowIndex] + gap;
-    }
+    const zoneFrame = zoneFrames[zone];
+    const availableWidth = zoneFrame.width;
 
-    if (leftPercent > 100 - widthPercent - 1) {
-      widthPercent = Math.max(12, 100 - leftPercent - 1);
-    }
+    const preferredWidths = zoneSegments.map((segment) => {
+      const durationMinutes = Math.max(0, segment.endMinute - segment.startMinute);
+      return Math.max(
+        minWidthPercent,
+        Math.min(maxWidthPercent, 15.5 + ((durationMinutes / totalBandMinutes) * 100) * 0.38),
+      );
+    });
 
-    if (leftPercent > 87) {
-      leftPercent = 87;
-      widthPercent = Math.min(widthPercent, 12);
-    }
+    const gapTotal = Math.max(0, zoneSegments.length - 1) * pillGapPercent;
+    const totalPreferredWidth =
+      preferredWidths.reduce((sum, width) => sum + width, 0) + gapTotal;
+    const scale =
+      totalPreferredWidth > availableWidth
+        ? Math.max(0.78, (availableWidth - gapTotal) / Math.max(1, preferredWidths.reduce((sum, width) => sum + width, 0)))
+        : 1;
 
-    rowRightEdges[rowIndex] = leftPercent + widthPercent;
+    let cursor = zoneFrame.left;
 
-    return {
-      segment,
-      style: {
-        left: `${leftPercent}%`,
-        width: `${widthPercent}%`,
-        top: rowIndex === 0 ? "5px" : "25px",
-      },
-    };
+    zoneSegments.forEach((segment, index) => {
+      const widthPercent = Math.min(
+        maxWidthPercent,
+        Math.max(availableWidth / Math.max(zoneSegments.length, 1) - pillGapPercent, preferredWidths[index]! * scale),
+      );
+
+      if (cursor + widthPercent > zoneFrame.left + zoneFrame.width) {
+        cursor = Math.max(zoneFrame.left, zoneFrame.left + zoneFrame.width - widthPercent);
+      }
+
+      positioned.push({
+        segment,
+        style: {
+          left: `${cursor}%`,
+          width: `${Math.min(widthPercent, zoneFrame.left + zoneFrame.width - cursor)}%`,
+        },
+      });
+
+      cursor += widthPercent + pillGapPercent;
+    });
   });
+
+  return positioned;
 }
 
 function getSegmentIcon(tone: RecoveryIslandSegment["tone"]) {
@@ -200,40 +204,46 @@ export function RecoveryIslandsVisual({
   days: RecoveryIslandDay[];
 }) {
   const sortedDays = [...days].sort((left, right) => left.date.getDay() - right.date.getDay());
+  const rowHeight = 76;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="overflow-x-auto pb-1">
-        <div className="min-w-[860px] space-y-3">
+        <div className="min-w-[920px] space-y-3.5">
           <div className="grid grid-cols-[110px_1fr] items-center gap-4">
             <div />
-            <div className="grid grid-cols-4 text-[10px] tracking-[0.04em] text-slate-500/65">
-              <span>7 AM</span>
-              <span className="text-center">12 PM</span>
-              <span className="text-center">6 PM</span>
-              <span className="text-right">11 PM</span>
+            <div className="grid grid-cols-4 text-[10px] tracking-[0.04em] text-slate-500/55">
+              <span>{SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_TIMELINE_TIME_01}</span>
+              <span className="text-center">{SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_TIMELINE_TIME_02}</span>
+              <span className="text-center">{SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_TIMELINE_TIME_03}</span>
+              <span className="text-right">{SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_TIMELINE_TIME_04}</span>
             </div>
           </div>
 
           <div className="space-y-2.5">
             {sortedDays.map((day) => {
               const visibleSegments = day.segments.filter((segment) => segment.tone !== "open");
+              const layout = buildSegmentLayouts(visibleSegments);
 
               return (
                 <div key={day.date.toISOString()} className="grid grid-cols-[110px_1fr] items-center gap-4">
-                  <div className="space-y-1">
-                    <p className="text-[14px] font-semibold text-slate-900">
+                  <div className="space-y-0.5 self-center">
+                    <p className="text-[14px] font-semibold leading-[1.15] text-slate-900">
                       {day.date.toLocaleDateString("en-US", { weekday: "long" })}
                     </p>
-                    <p className="text-[11px] tracking-[0.02em] text-slate-500">
+                    <p className="text-[10px] leading-[1.15] tracking-[0.02em] text-slate-500">
                       {formatMinutesAsHours(day.totalRecoveryMinutes)}
                     </p>
                   </div>
-                  <div className="relative h-[46px] overflow-hidden rounded-full border border-[#C8D7CC] bg-[rgba(249,252,248,0.76)]">
-                    <div className="pointer-events-none absolute inset-y-0 left-[31.25%] border-l border-dashed border-[#E2EBE1]" />
-                    <div className="pointer-events-none absolute inset-y-0 left-[68.75%] border-l border-dashed border-[#E2EBE1]" />
+                  <div
+                    className="relative overflow-hidden rounded-[24px] border border-[#C8D7CC] bg-[rgba(249,252,248,0.72)]"
+                    style={{ height: `${rowHeight}px` }}
+                  >
+                    <div className="pointer-events-none absolute inset-x-3 top-1/2 h-[42px] -translate-y-1/2 rounded-[18px] bg-[rgba(255,255,255,0.14)]" />
+                    <div className="pointer-events-none absolute inset-y-0 left-[31.25%] border-l border-dashed border-[#E2EBE1]/55" />
+                    <div className="pointer-events-none absolute inset-y-0 left-[68.75%] border-l border-dashed border-[#E2EBE1]/55" />
 
-                    {buildSegmentLayouts(visibleSegments).map(({ segment, style }, index) => {
+                    {layout.map(({ segment, style }, index) => {
                       const Icon = getSegmentIcon(segment.tone);
                       const hasDetail = Boolean(segment.displayLabel && segment.timeLabel);
 
@@ -241,17 +251,16 @@ export function RecoveryIslandsVisual({
                         <div
                           key={`${index}-${segment.tone}-${segment.startMinute}`}
                           className={cn(
-                            "absolute z-10 flex h-[18px] items-center gap-2 overflow-hidden rounded-[14px] px-3 shadow-[0_4px_10px_rgba(76,94,84,0.08)]",
+                            "absolute left-0 top-1/2 z-10 flex h-[30px] min-w-[145px] max-w-[186px] -translate-y-1/2 items-center gap-2 overflow-hidden rounded-[15px] px-3.5 shadow-[0_5px_12px_rgba(76,94,84,0.09)]",
                             SEGMENT_TONES[segment.tone],
                             segment.emphasis === "steady" && "shadow-[inset_0_0_0_1px_rgba(255,255,255,0.4)]",
                             segment.emphasis === "tentative" && "z-0 opacity-82 shadow-[0_3px_8px_rgba(76,94,84,0.04)]",
                           )}
-                          style={style}
+                          style={style as CSSProperties}
                         >
                           <span
                             className={cn(
-                              "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
-                              "h-5 w-5",
+                              "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
                               SEGMENT_ICON_CHIP[segment.tone],
                             )}
                           >
@@ -259,15 +268,15 @@ export function RecoveryIslandsVisual({
                           </span>
                           {hasDetail ? (
                             <span className="min-w-0">
-                              <span className="block truncate whitespace-nowrap text-[11px] font-medium leading-3 text-slate-800">
+                              <span className="block truncate whitespace-nowrap text-[13px] font-medium leading-[1.08] text-slate-800">
                                 {segment.displayLabel}
                               </span>
-                              <span className="block truncate whitespace-nowrap text-[9px] tracking-[0.01em] leading-3 text-slate-600">
+                              <span className="block truncate whitespace-nowrap text-[11px] tracking-[0.01em] leading-[1.08] text-slate-600">
                                 {segment.timeLabel}
                               </span>
                             </span>
                           ) : segment.displayLabel ? (
-                            <span className="truncate whitespace-nowrap text-[11px] font-medium leading-3 text-slate-800">
+                            <span className="truncate whitespace-nowrap text-[13px] font-medium leading-[1.1] text-slate-800">
                               {segment.displayLabel}
                             </span>
                           ) : null}
@@ -287,14 +296,14 @@ export function RecoveryIslandsVisual({
 
 export function RecoveryLegendCard() {
   return (
-    <div className="rounded-[22px] border border-[#D1DDD2] bg-[rgba(255,255,255,0.78)] px-4 py-4">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+    <div className="rounded-[22px] border border-[#D1DDD2] bg-[rgba(255,255,255,0.78)] px-5 py-5">
+      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
         {LEGEND_ITEMS.map((item) => {
           const Icon = getSegmentIcon(item.tone);
 
           return (
-            <div key={item.tone} className="space-y-2 text-center">
-              <div className="flex items-center justify-center gap-2">
+            <div key={item.tone} className="space-y-2.5 text-center">
+              <div className="flex items-center justify-center gap-2.5">
                 <span
                   className={cn(
                     "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
@@ -305,7 +314,7 @@ export function RecoveryLegendCard() {
                 </span>
                 <span className="text-sm font-semibold text-slate-800">{item.label}</span>
               </div>
-              <p className="text-[13px] leading-6 text-slate-500">
+              <p className="px-1 text-[13px] leading-6 text-slate-500">
                 {LEGEND_DESCRIPTIONS[item.tone]}
               </p>
             </div>

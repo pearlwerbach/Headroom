@@ -24,19 +24,19 @@ describe("profile presentation registry", () => {
       description:
         "You do your best work when demanding tasks have structure, protection, and enough uninterrupted time.",
       corePattern:
-        "Protected time matters more than how much open time the week appears to have.",
+        "Your week works best when deep work is protected before smaller commitments fill the space.",
       overviewLine:
-        "Your best work depends on protected time, and once a block is broken, depth is harder to recover.",
+        "When a work block gets interrupted, it can be hard to recover the depth that block was meant to support.",
     });
 
     expect(SUBTYPE_PRESENTATIONS["Short-Cycle Executor"]).toEqual({
       name: "Short-Cycle Executor",
       description:
-        "You can keep work moving in shorter cycles as long as tasks stay concrete and usable.",
+        "You keep work moving in shorter cycles when tasks are clear, concrete, and easy to resume.",
       corePattern:
-        "Momentum is easier to preserve than waiting for one ideal block later.",
+        "Progress comes from maintaining momentum, not waiting for one perfect block.",
       overviewLine:
-        "You can make steady progress in shorter bursts, as long as the work stays clear and easy to re-enter.",
+        "Short windows can stay useful when each task has a clear next action.",
     });
   });
 
@@ -44,17 +44,17 @@ describe("profile presentation registry", () => {
     expect(
       SUBTYPE_PRESENTATIONS["Context-Sensitive Worker"].overviewLine,
     ).toBe(
-      "Your usable time depends as much on context as it does on the clock.",
+      "Your schedule works best when similar modes of work are grouped instead of scattered.",
     );
     expect(
       SUBTYPE_PRESENTATIONS["Reset-Sensitive Scheduler"].overviewLine,
     ).toBe(
-      "Starting and switching carry real cost, so the sequence of your week matters as much as the time itself.",
+      "The sequence of your week matters: heavy blocks can reduce what the next block can support.",
     );
     expect(
       SUBTYPE_PRESENTATIONS["Adaptive Generalist"].overviewLine,
     ).toBe(
-      "You can adapt across different kinds of work without heavy setup, which makes your time more consistently usable.",
+      "Your time stays usable across varied weeks, but flexibility can turn into overcommitment if scope expands too far.",
     );
   });
 });

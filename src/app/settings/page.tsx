@@ -1,6 +1,5 @@
 import { AppShell } from "@/components/app-shell";
 import { unstable_noStore as noStore } from "next/cache";
-import { ProfileOverview } from "@/components/profile-overview";
 import { SectionCard } from "@/components/section-card";
 import { StatusPill } from "@/components/status-pill";
 import {
@@ -8,9 +7,9 @@ import {
   updateIncludedCalendarsAction,
 } from "@/app/actions/week-analysis";
 import Link from "next/link";
+import { SITE_COPY } from "@/lib/copy";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
-import { formatDateTime } from "@/lib/utils";
 import { isGoogleOAuthConfigured } from "@/lib/auth";
 import {
   getGoogleCalendarUiStatus,
@@ -29,15 +28,10 @@ export default async function SettingsPage({
   noStore();
   const user = await requireUser();
   const params = searchParams ? await searchParams : undefined;
-  const profileSaved = params?.profileSaved === "1";
   const googleLinked = params?.googleLinked === "1";
   const googleStateReset = params?.googleStateReset === "1";
   const calendarStatusParam = typeof params?.calendar === "string" ? params.calendar : null;
-  const [profile, account, report, userRecord] = await Promise.all([
-    prisma.workProfile.findFirst({
-      where: { userId: user.id },
-      orderBy: { updatedAt: "desc" },
-    }),
+  const [account, report, userRecord] = await Promise.all([
     prisma.account.findFirst({
       where: { userId: user.id, provider: "google" },
     }),
@@ -51,7 +45,6 @@ export default async function SettingsPage({
       },
     }),
   ]);
-  const googleConnected = Boolean(account?.access_token);
   const hasFreshReport = Boolean(report && report.expiresAt > new Date());
   const googleOAuthConfigured = isGoogleOAuthConfigured();
   const availableCalendars =
@@ -83,42 +76,48 @@ export default async function SettingsPage({
         : "alert";
   const googleStatusLabel =
     googleUiStatus === "connected_ready"
-      ? "Connected and ready"
+      ? SITE_COPY.settings.COPY_SETTINGS_GOOGLE_STATUS_CONNECTED_01
       : googleUiStatus === "reconnect_needed"
-        ? "Reconnect needed"
+        ? SITE_COPY.settings.COPY_SETTINGS_GOOGLE_STATUS_RECONNECT_01
         : googleUiStatus === "missing_calendar_access"
-          ? "Calendar access missing"
+          ? SITE_COPY.settings.COPY_SETTINGS_GOOGLE_STATUS_MISSING_ACCESS_01
           : googleUiStatus === "provider_access_restricted"
-            ? "Provider access restricted"
-            : "Not connected";
+            ? SITE_COPY.settings.COPY_SETTINGS_GOOGLE_STATUS_PROVIDER_RESTRICTED_01
+            : SITE_COPY.settings.COPY_SETTINGS_GOOGLE_STATUS_NOT_CONNECTED_01;
   const googleStatusCopy =
     googleUiStatus === "connected_ready"
       ? hasFreshReport
-        ? "Google Calendar is connected, and the current week has already been analyzed."
-        : "Google Calendar is connected. Your next step is to analyze the current week."
+        ? SITE_COPY.settings.COPY_SETTINGS_GOOGLE_COPY_CONNECTED_FRESH_01
+        : SITE_COPY.settings.COPY_SETTINGS_GOOGLE_COPY_CONNECTED_NEEDS_ANALYSIS_01
       : googleUiStatus === "reconnect_needed"
-        ? "Google Calendar access expired. Reconnect Google Calendar."
+        ? SITE_COPY.settings.COPY_SETTINGS_GOOGLE_COPY_RECONNECT_01
         : googleUiStatus === "missing_calendar_access"
-          ? "This Google account is linked, but it does not currently include read-only calendar access."
+          ? SITE_COPY.settings.COPY_SETTINGS_GOOGLE_COPY_MISSING_ACCESS_01
         : googleUiStatus === "provider_access_restricted"
-          ? "Google sign-in succeeded, but this account cannot currently expose calendar data to Headroom."
-            : "Connect Google Calendar to analyze the next seven days through your profile.";
+          ? SITE_COPY.settings.COPY_SETTINGS_GOOGLE_COPY_PROVIDER_RESTRICTED_01
+            : SITE_COPY.settings.COPY_SETTINGS_GOOGLE_COPY_NOT_CONNECTED_01;
   const googleNextStep =
     googleUiStatus === "connected_ready"
       ? hasFreshReport
-        ? "Re-analyze any time if you want a fresh read."
-        : "Analyze your week from the Dashboard."
+        ? SITE_COPY.settings.COPY_SETTINGS_GOOGLE_NEXTSTEP_CONNECTED_FRESH_01
+        : SITE_COPY.settings.COPY_SETTINGS_GOOGLE_NEXTSTEP_CONNECTED_NEEDS_ANALYSIS_01
       : googleUiStatus === "provider_access_restricted"
-        ? "Review account access restrictions, then reconnect."
+        ? SITE_COPY.settings.COPY_SETTINGS_GOOGLE_NEXTSTEP_PROVIDER_RESTRICTED_01
         : googleUiStatus === "missing_calendar_access"
-          ? "Reconnect Google Calendar and approve read-only calendar access."
+          ? SITE_COPY.settings.COPY_SETTINGS_GOOGLE_NEXTSTEP_MISSING_ACCESS_01
           : googleUiStatus === "reconnect_needed"
-            ? "Reconnect Google Calendar, then run a fresh analysis."
-            : "Connect Google Calendar to get started.";
+            ? SITE_COPY.settings.COPY_SETTINGS_GOOGLE_NEXTSTEP_RECONNECT_01
+            : SITE_COPY.settings.COPY_SETTINGS_GOOGLE_NEXTSTEP_NOT_CONNECTED_01;
   const primaryConnectionActionLabel =
     googleUiStatus === "connected_ready" || googleUiStatus === "reconnect_needed"
-      ? "Reconnect Google Calendar"
-      : "Connect Google Calendar";
+      ? SITE_COPY.settings.COPY_SETTINGS_GOOGLE_PRIMARY_ACTION_RECONNECT_01
+      : SITE_COPY.settings.COPY_SETTINGS_GOOGLE_PRIMARY_ACTION_CONNECT_01;
+  const primaryButtonClass =
+    "inline-flex items-center justify-center rounded-full border border-transparent bg-[#2F3A34] px-6 py-3 text-sm font-medium tracking-[0.02em] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_10px_24px_rgba(47,58,52,0.14)] transition duration-150 hover:-translate-y-px hover:bg-[#38463f]";
+  const secondaryButtonClass =
+    "inline-flex items-center justify-center rounded-full border border-[#d6d1c8] bg-white px-5 py-3 text-sm font-medium text-slate-700 transition duration-150 hover:border-[#bcb4a8] hover:bg-[#faf8f5]";
+  const tertiaryButtonClass =
+    "inline-flex items-center justify-center rounded-full px-2 py-3 text-sm font-medium text-slate-600 transition duration-150 hover:-translate-y-px hover:text-slate-900";
 
   return (
     <AppShell
@@ -126,61 +125,56 @@ export default async function SettingsPage({
       userName={user.name}
       variant="profileReport"
     >
-      <main className="grid gap-6 xl:grid-cols-[1fr_1fr]">
+      <main className="mx-auto flex max-w-5xl flex-col gap-10">
         <SectionCard
-          title="Google Calendar"
-          eyebrow="Integration"
-          description="Read-only access to the Google calendars you include for the next 7 days."
+          title={SITE_COPY.settings.COPY_SETTINGS_GOOGLE_TITLE_01}
+          eyebrow={SITE_COPY.settings.COPY_SETTINGS_GOOGLE_EYEBROW_01}
+          description={SITE_COPY.settings.COPY_SETTINGS_GOOGLE_DESC_01}
+          className="p-8 md:p-9"
         >
-            <div className="space-y-4">
+          <div className="space-y-6">
             {googleStateReset ? (
-              <div className="rounded-[18px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
-                Local Google account state was cleared. Reconnect Google Calendar to create one clean account row.
+              <div className="rounded-[18px] border border-amber-200/70 bg-amber-50/85 px-4 py-3 text-sm leading-6 text-amber-900">
+                {SITE_COPY.settings.COPY_SETTINGS_GOOGLE_STATE_RESET_01}
               </div>
             ) : null}
             {googleLinked ? (
-              <div className="rounded-[18px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-900">
-                Google Calendar connected. Your saved profile is still in place, and your dashboard is ready for week analysis.
+              <div className="rounded-[18px] border border-emerald-200/70 bg-emerald-50/85 px-4 py-3 text-sm leading-6 text-emerald-900">
+                {SITE_COPY.settings.COPY_SETTINGS_GOOGLE_LINKED_01}
               </div>
             ) : null}
             {calendarSelectionSaved ? (
-              <div className="rounded-[18px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-900">
-                Included calendars updated. Re-analyze your week when you want a fresh read from the new set.
+              <div className="rounded-[18px] border border-emerald-200/70 bg-emerald-50/85 px-4 py-3 text-sm leading-6 text-emerald-900">
+                {SITE_COPY.settings.COPY_SETTINGS_GOOGLE_CALENDARS_SAVED_01}
               </div>
             ) : null}
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2.5">
               <StatusPill tone={googleStatusTone}>
                 {googleStatusLabel}
               </StatusPill>
               <StatusPill>{calendarSummary.label}</StatusPill>
-              <StatusPill>Next 7 days</StatusPill>
-              {hasFreshReport ? (
-                <StatusPill tone="success">
-                  Last analyzed: {formatDateTime(report!.analyzedAt)}
-                </StatusPill>
-              ) : null}
+              <StatusPill>{SITE_COPY.settings.COPY_SETTINGS_GOOGLE_STATUS_NEXT7_01}</StatusPill>
             </div>
-            <p className="max-w-xl text-sm leading-6 text-slate-600">
-              Headroom reads only the Google calendars you include here, never writes to them, and
-              only analyzes the next seven days. Event names may be read briefly to classify them
-              into broad categories, but only the categories and derived insights are stored.
-            </p>
-            <p className="max-w-xl text-sm leading-6 text-slate-600">{calendarSummary.detail}</p>
-            <div className="rounded-[18px] border border-slate-200/80 bg-slate-50/90 px-4 py-4">
-              <p className="text-sm font-semibold text-slate-900">{googleStatusCopy}</p>
-              <p className="mt-2 text-sm leading-6 text-slate-600">{googleNextStep}</p>
+            <div className="space-y-3">
+              <p className="max-w-2xl text-sm leading-7 text-slate-600">
+                {SITE_COPY.settings.COPY_SETTINGS_GOOGLE_BODY_01}
+              </p>
+              <p className="max-w-2xl text-sm leading-7 text-slate-600">{calendarSummary.detail}</p>
+            </div>
+            <div className="rounded-[20px] border border-[#e4e2db] bg-[#f8f7f3] px-5 py-5">
+              <p className="text-sm font-semibold leading-6 text-slate-900">{googleStatusCopy}</p>
+              <p className="mt-3 text-sm leading-7 text-slate-600">{googleNextStep}</p>
             </div>
             {!googleOAuthConfigured ? (
-              <p className="max-w-xl rounded-[18px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
-                Local Google OAuth is not configured yet. Add a real localhost Google client ID and
-                secret in <code className="font-mono">.env.local</code>, then restart the dev server.
+              <p className="max-w-2xl rounded-[18px] border border-amber-200/80 bg-amber-50/85 px-4 py-3 text-sm leading-6 text-amber-900">
+                {SITE_COPY.settings.COPY_SETTINGS_GOOGLE_OAUTH_NOT_CONFIGURED_01}
               </p>
             ) : null}
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap items-center gap-3 md:gap-4">
               {googleOAuthConfigured ? (
                 <Link
                   href="/connect/google"
-                  className="inline-flex items-center justify-center rounded-full border border-white/20 bg-[var(--surface-strong)] px-5 py-3 text-sm font-semibold text-slate-900 shadow-[0_16px_50px_-24px_rgba(15,23,42,0.7)] transition hover:-translate-y-0.5 hover:bg-white"
+                  className={primaryButtonClass}
                 >
                   {primaryConnectionActionLabel}
                 </Link>
@@ -188,53 +182,54 @@ export default async function SettingsPage({
                 <button
                   type="button"
                   disabled
-                  className="cursor-not-allowed rounded-full border border-slate-200 bg-slate-100 px-5 py-3 text-sm font-semibold text-slate-400"
+                  className="cursor-not-allowed rounded-full border border-slate-200 bg-slate-100 px-6 py-3 text-sm font-medium tracking-[0.02em] text-slate-400"
                 >
-                  Connect Google Calendar
+                  {SITE_COPY.settings.COPY_SETTINGS_GOOGLE_CONNECT_DISABLED_01}
                 </button>
               )}
               {account ? (
                 <form action={disconnectGoogleCalendarAction}>
                   <button
                     type="submit"
-                    className="rounded-full border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-500"
+                    className={secondaryButtonClass}
                   >
-                    Disconnect
+                    {SITE_COPY.settings.COPY_SETTINGS_GOOGLE_DISCONNECT_01}
                   </button>
                 </form>
               ) : null}
               <Link
                 href="/dashboard"
-                className="inline-flex items-center rounded-full border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-500"
+                className={tertiaryButtonClass}
               >
-                Open Dashboard
+                {SITE_COPY.settings.COPY_SETTINGS_GOOGLE_OPEN_DASHBOARD_01}
               </Link>
             </div>
           </div>
         </SectionCard>
 
         <SectionCard
-          title="Calendars included in analysis"
-          eyebrow="Source selection"
-          description="Choose which readable Google calendars Headroom should merge into the weekly read."
+          title={SITE_COPY.settings.COPY_SETTINGS_GOOGLE_SELECTION_TITLE_01}
+          eyebrow={SITE_COPY.settings.COPY_SETTINGS_GOOGLE_SELECTION_EYEBROW_01}
+          description={SITE_COPY.settings.COPY_SETTINGS_GOOGLE_SELECTION_DESC_01}
+          className="p-8 md:p-9"
         >
           {googleUiStatus === "connected_ready" && availableCalendars.length > 0 ? (
-            <form action={updateIncludedCalendarsAction} className="space-y-5">
-              <div className="space-y-3">
+            <form action={updateIncludedCalendarsAction} className="space-y-6">
+              <div className="space-y-4">
                 {availableCalendars.map((calendar) => {
                   const checked = selectedCalendarIds.includes(calendar.id);
 
                   return (
                     <label
                       key={calendar.id}
-                      className="flex items-start gap-3 rounded-[18px] border border-slate-200/80 bg-slate-50/80 px-4 py-4"
+                      className="flex cursor-pointer items-center gap-4 rounded-[20px] border border-slate-200/80 bg-slate-50/70 px-5 py-4 transition duration-150 hover:bg-[#f5f4ef]"
                     >
                       <input
                         type="checkbox"
                         name="calendarId"
                         value={calendar.id}
                         defaultChecked={checked}
-                        className="mt-1 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+                        className="h-[18px] w-[18px] shrink-0 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
                       />
                       <span className="space-y-1">
                         <span className="block text-sm font-semibold text-slate-900">
@@ -242,63 +237,34 @@ export default async function SettingsPage({
                         </span>
                         <span className="block text-sm leading-6 text-slate-600">
                           {calendar.primary
-                            ? "Primary calendar"
+                            ? SITE_COPY.settings.COPY_SETTINGS_GOOGLE_CALENDAR_PRIMARY_01
                             : calendar.accessRole === "owner"
-                              ? "Owned calendar"
-                              : "Shared readable calendar"}
+                              ? SITE_COPY.settings.COPY_SETTINGS_GOOGLE_CALENDAR_OWNED_01
+                              : SITE_COPY.settings.COPY_SETTINGS_GOOGLE_CALENDAR_SHARED_01}
                         </span>
                       </span>
                     </label>
                   );
                 })}
               </div>
-              <p className="max-w-xl text-sm leading-6 text-slate-600">
-                If you change the included calendars, Headroom clears the current cached report so the next analysis reflects the new source set.
+              <p className="max-w-2xl text-sm leading-7 text-slate-600">
+                {SITE_COPY.settings.COPY_SETTINGS_GOOGLE_SELECTION_HELPER_01}
               </p>
-              <div className="flex flex-wrap gap-3">
+              <div className="pt-2">
                 <button
                   type="submit"
-                  className="inline-flex items-center justify-center rounded-full border border-white/20 bg-[var(--surface-strong)] px-5 py-3 text-sm font-semibold text-slate-900 shadow-[0_16px_50px_-24px_rgba(15,23,42,0.7)] transition hover:-translate-y-0.5 hover:bg-white"
+                  className={primaryButtonClass}
                 >
-                  Save included calendars
+                  {SITE_COPY.settings.COPY_SETTINGS_GOOGLE_SELECTION_SAVE_01}
                 </button>
               </div>
             </form>
           ) : (
             <div className="space-y-3">
-              <p className="max-w-xl text-sm leading-6 text-slate-600">
-                Connect Google Calendar with read-only access before choosing which calendars are included in the weekly analysis.
+              <p className="max-w-2xl text-sm leading-7 text-slate-600">
+                {SITE_COPY.settings.COPY_SETTINGS_GOOGLE_SELECTION_EMPTY_01}
               </p>
             </div>
-          )}
-        </SectionCard>
-
-        <SectionCard
-          title="Work & Recovery Profile"
-          eyebrow="Saved profile"
-          description="A quick read of how the planner sees your week."
-        >
-          {profileSaved ? (
-            <div className="mb-4 theme-button-soft inline-flex rounded-full px-4 py-2 text-sm font-semibold">
-              Profile saved
-            </div>
-          ) : null}
-          {profile ? (
-            <ProfileOverview
-              profile={profile}
-              actions={
-                <Link
-                  href="/onboarding?edit=1&returnTo=settings"
-                  className="inline-flex rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-500"
-                >
-                  Retake quiz
-                </Link>
-              }
-            />
-          ) : (
-            <p className="text-sm text-slate-600">
-              Complete the onboarding quiz to create your first profile.
-            </p>
           )}
         </SectionCard>
       </main>

@@ -3,6 +3,7 @@ import type { NextAuthOptions } from "next-auth";
 import { getServerSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
+import { SITE_COPY } from "@/lib/copy";
 import { DEMO_USER_EMAIL, ensureDemoUser } from "@/lib/demo-user";
 import { prisma } from "@/lib/prisma";
 
@@ -77,7 +78,10 @@ export function getAuthModeConfig(): AuthModeConfig {
     googleConfigured,
     localDemoEnabled,
     effectiveProvider,
-    ctaLabel: effectiveProvider === "google" ? "Continue with Google" : "Start assessment",
+    ctaLabel:
+      effectiveProvider === "google"
+        ? SITE_COPY.shared.COPY_SHARED_AUTH_SIGNIN_GOOGLE_01
+        : SITE_COPY.shared.COPY_SHARED_AUTH_SIGNIN_DEMO_01,
     ctaHref: effectiveProvider === "demo" ? "/onboarding?edit=1" : undefined,
   };
 }

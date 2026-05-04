@@ -1,4 +1,5 @@
 import type { RecoveryIslandDay, RecoveryIslandSegment } from "@/components/recovery-islands-visual";
+import { SITE_COPY } from "@/lib/copy";
 import type { ClassifiedWeekEvent, CognitiveProfileSnapshot, WeekAnalysisMetrics } from "@/lib/domain";
 
 function safeNumber(value: unknown) {
@@ -24,13 +25,13 @@ function formatDayList(labels: string[]) {
 function getRecoveryModeLabel(tone: RecoveryIslandSegment["tone"]) {
   switch (tone) {
     case "exercise":
-      return "Movement";
+      return SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_MODE_LABEL_01;
     case "social":
-      return "Social support";
+      return SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_MODE_LABEL_02;
     case "care":
-      return "Meals / care";
+      return SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_MODE_LABEL_03;
     case "rest":
-      return "Explicit rest";
+      return SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_MODE_LABEL_04;
     case "open":
     default:
       return "Unplanned time";
@@ -39,7 +40,11 @@ function getRecoveryModeLabel(tone: RecoveryIslandSegment["tone"]) {
 
 function getApproximateTimeLabel(startMinute: number, endMinute: number) {
   const midpoint = (startMinute + endMinute) / 2;
-  return midpoint < 300 ? "Morning" : midpoint < 660 ? "Afternoon" : "Evening";
+  return midpoint < 300
+    ? SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_TIME_BUCKET_MORNING_01
+    : midpoint < 660
+      ? SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_TIME_BUCKET_AFTERNOON_01
+      : SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_TIME_BUCKET_EVENING_01;
 }
 
 const RECOVERY_OPEN_WINDOW_START = 60;
@@ -83,13 +88,13 @@ function getRecoveryDisplayLabel(
 ) {
   switch (tone) {
     case "exercise":
-      return "Movement block";
+      return SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_PILL_LABEL_EXERCISE_01;
     case "social":
-      return "Social support";
+      return SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_PILL_LABEL_SOCIAL_01;
     case "care":
-      return "Meals / care";
+      return SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_PILL_LABEL_CARE_01;
     case "rest":
-      return "Explicit rest";
+      return SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_PILL_LABEL_REST_01;
     case "open":
     default:
       return "Unplanned time";
@@ -100,14 +105,14 @@ function getProfileBestWith(profile: CognitiveProfileSnapshot) {
   const preferredMode = profile.preferredRecoveryModes[0] ?? "quiet";
 
   if (preferredMode === "exercise" || profile.exerciseRecoveryValue >= 5) {
-    return "Best with: movement before or after tighter stretches.";
+    return SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_PROFILE_BEST_01;
   }
 
   if (preferredMode === "social" || profile.socialRecoveryValue >= 5) {
-    return "Best with: buffered social support that still feels restorative.";
+    return SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_PROFILE_BEST_02;
   }
 
-  return "Best with: longer quiet blocks and slower transitions.";
+  return SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_PROFILE_BEST_03;
 }
 
 function getDominantTone(
@@ -126,18 +131,18 @@ function getProfilePriorityLine(
   const preferredMode = profile.preferredRecoveryModes[0] ?? "quiet";
 
   if ((preferredMode === "exercise" || profile.exerciseRecoveryValue >= 5) && toneMinutes.exercise === 0) {
-    return "Prioritize: movement near the tighter stretches.";
+    return SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_PROFILE_PRIORITY_02;
   }
 
   if ((preferredMode === "social" || profile.socialRecoveryValue >= 5) && toneMinutes.social === 0) {
-    return "Prioritize: buffered social support that does not create extra switching.";
+    return SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_PROFILE_PRIORITY_03;
   }
 
   if (toneMinutes.rest + toneMinutes.care === 0) {
-    return "Prioritize: meals/care or explicit rest before tighter stretches.";
+    return SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_PROFILE_PRIORITY_04;
   }
 
-  return "Prioritize: keeping the recovery that is already visible intact.";
+  return SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_PROFILE_PRIORITY_05;
 }
 
 function getIdealRecoveryLine(profile: CognitiveProfileSnapshot) {
@@ -160,24 +165,24 @@ export function buildPlanningStyleRead(
 ) {
   const pressureLine =
     profile.fragmentationCost >= 4 && safeNumber(metrics.squeezedOpenBlockCount) >= 3
-      ? "For your planning style, the biggest pressure is not total hours alone but how many openings are broken into less reliable pieces."
+      ? SITE_COPY.dashboard.COPY_DASHBOARD_PROFILE_HEADLINE_01
       : profile.transitionCost >= 4 && safeNumber(metrics.transitionDensity) >= 1
-        ? "For your planning style, switching cost is likely to matter almost as much as volume this week."
+        ? SITE_COPY.dashboard.COPY_DASHBOARD_PROFILE_HEADLINE_02
         : profile.overloadSensitivity >= 4 && safeNumber(metrics.loadConcentration) >= 0.35
-          ? "For your planning style, the week is more likely to feel tight where demand clusters than from the total weekly hours on their own."
-          : "For your planning style, the week is likely to be shaped more by where margin survives than by how much open time exists in theory.";
+          ? SITE_COPY.dashboard.COPY_DASHBOARD_PROFILE_HEADLINE_03
+          : SITE_COPY.dashboard.COPY_DASHBOARD_PROFILE_HEADLINE_03;
 
   const supportLine =
     profile.quietRecoveryValue >= 4 && safeNumber(metrics.recoverySoloMinutes) <= 180
-      ? "This subtype usually benefits from quieter reset, and the visible week leaves only a modest amount of that support."
+      ? SITE_COPY.dashboard.COPY_DASHBOARD_PROFILE_DETAIL_01
       : profile.exerciseRecoveryValue >= 4 && safeNumber(metrics.exerciseCount) > 0
-        ? "This subtype tends to benefit from active reset, and the visible week does at least give exercise a real place in the rhythm."
+        ? SITE_COPY.dashboard.COPY_DASHBOARD_PROFILE_DETAIL_02
         : profile.socialRecoveryValue >= 4 && safeNumber(metrics.socialMinutes) > 0
-          ? "This subtype can use social support well, so some of the week’s social time may function as genuine recovery when it is not stacked too tightly."
-          : "The planning challenge here is less about maximizing output and more about keeping enough usable margin for the subtype you’ve saved.";
+          ? SITE_COPY.dashboard.COPY_DASHBOARD_PROFILE_DETAIL_03
+          : SITE_COPY.dashboard.COPY_DASHBOARD_PROFILE_DETAIL_01;
 
   return {
-    title: "Through your profile",
+    title: SITE_COPY.dashboard.COPY_DASHBOARD_PROFILE_PANEL_TITLE_01,
     headline: pressureLine,
     detail: supportLine,
   };
@@ -379,34 +384,34 @@ export function buildRecoveryIslandsInsight(
     .slice(0, 2)
     .map(([tone]) => getRecoveryModeLabel(tone));
 
-  let summary =
-    "Recovery is barely visible in the calendar this week, so most reset will need to be protected intentionally rather than assumed from leftover time.";
-  let supportingLine =
-    "There is not enough visible support here to do a detailed subtype read, so the safest assumption is that recovery needs deliberate placement.";
+  let summary: string = SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_SUMMARY_01;
+  let supportingLine: string = SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_SUPPORTING_01;
   const idealRecoveryLine = getIdealRecoveryLine(profile);
-  let profileAlreadyVisible = "Already visible: recovery is still fairly light in the calendar.";
-  let profilePriority = "Prioritize: protecting one or two visible recovery blocks this week.";
+  let profileAlreadyVisible: string =
+    SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_PROFILE_VISIBLE_01;
+  let profilePriority: string =
+    SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_PROFILE_PRIORITY_01;
 
   if (totalRecoveryMinutes > 0) {
     summary =
       activeDays.length >= 4
-        ? `Recovery is visible across the week, with the clearest support around ${formatDayList(topDays)}.`
-        : `Recovery is visible, but it clusters most clearly around ${formatDayList(topDays)}.`;
+        ? SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_SUMMARY_02(formatDayList(topDays))
+        : SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_SUMMARY_03(formatDayList(topDays));
 
     const dominantTone = getDominantTone(toneMinutes, ["open"]);
     supportingLine = dominantTone
-      ? `Most of the scheduled support appears as ${getRecoveryModeLabel(dominantTone).toLowerCase()}, with smaller pockets elsewhere in the week.`
-      : "Visible scheduled recovery is present, but still relatively light across the week.";
+      ? SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_SUPPORTING_02(getRecoveryModeLabel(dominantTone))
+      : SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_SUPPORTING_01;
 
     const dominantVisibleTone = getDominantTone(toneMinutes, ["open"]);
     if (dominantVisibleTone === "exercise") {
-      profileAlreadyVisible = "Already visible: movement is showing up at useful points in the week.";
+      profileAlreadyVisible = SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_PROFILE_VISIBLE_02;
     } else if (dominantVisibleTone === "care") {
-      profileAlreadyVisible = "Already visible: meals and care routines are giving the week some structure.";
+      profileAlreadyVisible = SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_PROFILE_VISIBLE_03;
     } else if (dominantVisibleTone === "rest") {
-      profileAlreadyVisible = "Already visible: explicit rest is visible in a few useful pockets.";
+      profileAlreadyVisible = SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_PROFILE_VISIBLE_04;
     } else if (dominantVisibleTone === "social") {
-      profileAlreadyVisible = "Already visible: social support is part of the recovery picture this week.";
+      profileAlreadyVisible = SITE_COPY.dashboard.COPY_DASHBOARD_RECOVERY_PROFILE_VISIBLE_05;
     }
 
     profilePriority = getProfilePriorityLine(profile, toneMinutes);

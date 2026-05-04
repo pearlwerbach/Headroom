@@ -3,6 +3,7 @@
 import { useActionState, useMemo, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { submitOnboardingAction, type ActionState } from "@/app/actions/onboarding";
+import { SITE_COPY } from "@/lib/copy";
 import { quizQuestions } from "@/lib/onboarding";
 import { cn } from "@/lib/utils";
 
@@ -42,10 +43,10 @@ export function OnboardingQuiz({ returnTo }: OnboardingQuizProps) {
       <div className="rounded-[32px] border border-slate-200/90 bg-white p-6 shadow-[0_32px_90px_-44px_rgba(15,23,42,0.34)] sm:p-8 lg:min-h-[540px] lg:px-10 lg:py-8">
         <div className="mb-3 flex items-center justify-between gap-4">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted-strong)]">
-            Question {step + 1} of {quizQuestions.length}
+            {SITE_COPY.onboarding.COPY_ONBOARDING_PROGRESS_LABEL_01(step + 1, quizQuestions.length)}
           </p>
           <div className="theme-button-soft shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold">
-            {step + 1} / {quizQuestions.length}
+            {SITE_COPY.onboarding.COPY_ONBOARDING_PROGRESS_PILL_01(step + 1, quizQuestions.length)}
           </div>
         </div>
 
@@ -100,7 +101,7 @@ export function OnboardingQuiz({ returnTo }: OnboardingQuizProps) {
 
         <div className="mt-5 flex flex-col gap-4 pt-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm text-slate-500">
-            Responses inform your planning profile.
+            {SITE_COPY.onboarding.COPY_ONBOARDING_HELPER_01}
           </div>
           <div className="flex gap-3">
             <button
@@ -110,7 +111,7 @@ export function OnboardingQuiz({ returnTo }: OnboardingQuizProps) {
               disabled={step === 0}
             >
               <ArrowLeft size={16} />
-              Back
+              {SITE_COPY.onboarding.COPY_ONBOARDING_BACK_01}
             </button>
             {isLastStep ? (
               <button
@@ -119,7 +120,9 @@ export function OnboardingQuiz({ returnTo }: OnboardingQuizProps) {
                 className="theme-button-primary inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition hover:-translate-y-0.5 disabled:opacity-40"
                 disabled={!isComplete || pending}
               >
-                {pending ? "Saving..." : "Save profile"}
+                {pending
+                  ? SITE_COPY.onboarding.COPY_ONBOARDING_SAVE_PENDING_01
+                  : SITE_COPY.onboarding.COPY_ONBOARDING_SAVE_IDLE_01}
               </button>
             ) : null}
           </div>

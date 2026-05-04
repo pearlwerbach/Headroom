@@ -10,7 +10,7 @@ function makeProfile(
     subtypeDescription:
       "You do your best work when demanding tasks have structure, protection, and enough uninterrupted time.",
     shortSummary:
-      "Protected time matters more than how much open time the week appears to have.",
+      "Your week works best when deep work is protected before smaller commitments fill the space.",
     overloadSensitivity: 4,
     fragmentationCost: 4,
     transitionCost: 4,

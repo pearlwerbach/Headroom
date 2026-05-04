@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import { SITE_COPY } from "@/lib/copy";
 import type { GoogleReadableCalendar } from "@/lib/google-calendar";
 
 const CALENDAR_READONLY_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
@@ -82,8 +83,8 @@ export function getIncludedCalendarsSummary({
 
   if (count === 0) {
     return {
-      label: "No calendars selected",
-      detail: "Choose which calendars Headroom should include in analysis.",
+      label: SITE_COPY.settings.COPY_SETTINGS_CALSUMMARY_NONE_LABEL_01,
+      detail: SITE_COPY.settings.COPY_SETTINGS_CALSUMMARY_NONE_DETAIL_01,
     };
   }
 
@@ -91,10 +92,10 @@ export function getIncludedCalendarsSummary({
     const selectedCalendar = selectedCalendars[0];
 
     return {
-      label: "1 calendar included",
+      label: SITE_COPY.settings.COPY_SETTINGS_CALSUMMARY_ONE_LABEL_01,
       detail: selectedCalendar?.primary
-        ? "Primary calendar included"
-        : selectedCalendar?.summary ?? "One calendar included",
+        ? SITE_COPY.settings.COPY_SETTINGS_CALSUMMARY_ONE_DETAIL_01
+        : selectedCalendar?.summary ?? SITE_COPY.settings.COPY_SETTINGS_CALSUMMARY_ONE_DETAIL_02,
     };
   }
 
@@ -113,6 +114,6 @@ export function getIncludedCalendarsSummary({
             .slice(0, 3)
             .map((calendar) => calendar.summary)
             .join(", ")
-        : "Multiple calendars included",
+        : SITE_COPY.settings.COPY_SETTINGS_CALSUMMARY_MULTI_DETAIL_01,
   };
 }

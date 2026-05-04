@@ -2,6 +2,7 @@
 
 import { LogIn, LogOut } from "lucide-react";
 import { signIn, signOut } from "next-auth/react";
+import { SITE_COPY } from "@/lib/copy";
 import { cn } from "@/lib/utils";
 
 interface AuthButtonProps {
@@ -37,7 +38,12 @@ export function AuthButton({
       }
     >
       {isSignIn ? <LogIn size={16} /> : <LogOut size={16} />}
-      {label ?? (isSignIn ? (provider === "demo" ? "Start assessment" : "Continue with Google") : "Sign out")}
+      {label ??
+        (isSignIn
+          ? provider === "demo"
+            ? SITE_COPY.shared.COPY_SHARED_AUTH_SIGNIN_DEMO_01
+            : SITE_COPY.shared.COPY_SHARED_AUTH_SIGNIN_GOOGLE_01
+          : SITE_COPY.shared.COPY_SHARED_AUTH_SIGNOUT_01)}
     </button>
   );
 }

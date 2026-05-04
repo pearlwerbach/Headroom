@@ -2,17 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { SITE_COPY } from "@/lib/copy";
 
 const DURATION_MS = 2000;
 const TICK_MS = 120;
-const loadingMessages = [
-  "Analyzing focus endurance and recovery patterns",
-  "Estimating usable work capacity vs scheduled time",
-  "Evaluating fragmentation sensitivity",
-  "Modeling task switching costs",
-  "Identifying scheduling failure points",
-  "Converting signals into planning constraints",
-] as const;
+const loadingMessages = SITE_COPY.onboarding.COPY_ONBOARDING_LOADING_MESSAGES;
 
 export function OnboardingLoadingScreen() {
   const router = useRouter();
@@ -50,10 +44,10 @@ export function OnboardingLoadingScreen() {
   return (
     <div className="mx-auto max-w-3xl rounded-[28px] border border-white/60 bg-white/90 p-8 shadow-[0_30px_80px_-38px_rgba(15,23,42,0.42)]">
       <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted-strong)]">
-        Building profile
+        {SITE_COPY.onboarding.COPY_ONBOARDING_LOADING_EYEBROW_01}
       </p>
       <h2 className="mt-3 font-serif text-3xl leading-tight text-slate-900">
-        Turning your signals into weekly planning constraints
+        {SITE_COPY.onboarding.COPY_ONBOARDING_LOADING_HEADLINE_01}
       </h2>
 
       <div className="mt-8 h-3 overflow-hidden rounded-full bg-slate-100">
