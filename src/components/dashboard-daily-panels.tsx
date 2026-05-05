@@ -20,7 +20,7 @@ interface WeekTrajectorySummaryCard {
 function getTone(score: number) {
   if (score >= 70) {
     return {
-      row: "border-[#E8E2DB] bg-white",
+      row: "border-[rgba(31,41,51,0.10)] bg-white",
       bar: "bg-[#D8A7A7]",
       text: "text-[#866477]",
     };
@@ -28,16 +28,69 @@ function getTone(score: number) {
 
   if (score >= 45) {
     return {
-      row: "border-[#E8E2DB] bg-white",
+      row: "border-[rgba(31,41,51,0.10)] bg-white",
       bar: "bg-[#E2B46A]",
       text: "text-[#7b654b]",
     };
   }
 
   return {
-    row: "border-[#E8E2DB] bg-white",
+    row: "border-[rgba(31,41,51,0.10)] bg-white",
     bar: "bg-[#7BAA8D]",
     text: "text-[#5d7667]",
+  };
+}
+
+function getDayAccentClasses(mode: DailyLoadScore["operatingMode"]) {
+  switch (mode) {
+    case "fragmented":
+      return {
+        badge: "border-transparent bg-[#F1E4E8] text-[#8A5F6D]",
+        progress: "bg-[#B78393]",
+        score: "border-[#D8B6C1] bg-[#FAF2F5] text-[#8A5F6D]",
+        ring: "ring-[#B78393]/45",
+        hover: "hover:border-[#D8B6C1]",
+      };
+    case "protected_work":
+      return {
+        badge: "border-transparent bg-[#F3E7D2] text-[#8A6335]",
+        progress: "bg-[#D8A850]",
+        score: "border-[#E6C992] bg-[#FCF7EE] text-[#8A6335]",
+        ring: "ring-[#D8A850]/38",
+        hover: "hover:border-[#E0C088]",
+      };
+    case "follow_through":
+      return {
+        badge: "border-transparent bg-[rgba(216,167,167,0.18)] text-[#866477]",
+        progress: "bg-[#D8A7A7]",
+        score: "border-[#E7CACA] bg-[#FCF5F5] text-[#866477]",
+        ring: "ring-[#D8A7A7]/40",
+        hover: "hover:border-[#D8A7A7]",
+      };
+    case "open_capacity":
+      return {
+        badge: "border-transparent bg-[rgba(123,170,141,0.18)] text-[#56735f]",
+        progress: "bg-[#7BAA8D]",
+        score: "border-[#D7E5DC] bg-[#F4FBF6] text-[#56735f]",
+        ring: "ring-[#7BAA8D]/38",
+        hover: "hover:border-[#BFD5C5]",
+      };
+    case "recover":
+      return {
+        badge: "border-transparent bg-[rgba(183,169,214,0.18)] text-[#6d5f8b]",
+        progress: "bg-[#A992C9]",
+        score: "border-[#D9D0EC] bg-[#F7F4FD] text-[#6d5f8b]",
+        ring: "ring-[#A992C9]/38",
+        hover: "hover:border-[#D0C5E5]",
+      };
+    default:
+      return {
+        badge: "border-transparent bg-[#F3E7D2] text-[#8A6335]",
+        progress: "bg-[#D8A850]",
+        score: "border-[#E6C992] bg-[#FCF7EE] text-[#8A6335]",
+        ring: "ring-[#D8A850]/38",
+        hover: "hover:border-[#E0C088]",
+      };
   };
 }
 
@@ -54,19 +107,7 @@ function getWeekLoadClasses(tone: WeekLoadSummaryCard["tone"]) {
 }
 
 function getModeClasses(mode: DailyLoadScore["operatingMode"]) {
-  switch (mode) {
-    case "follow_through":
-      return "border-transparent bg-[rgba(216,167,167,0.18)] text-[#866477]";
-    case "open_capacity":
-      return "border-transparent bg-[rgba(123,170,141,0.18)] text-[#56735f]";
-    case "recover":
-      return "border-transparent bg-[rgba(183,169,214,0.18)] text-[#6d5f8b]";
-    case "fragmented":
-      return "border-transparent bg-[rgba(216,167,167,0.16)] text-[#7d6170]";
-    case "protected_work":
-    default:
-      return "border-transparent bg-[rgba(226,180,106,0.22)] text-[#86633b]";
-  }
+  return getDayAccentClasses(mode).badge;
 }
 
 function formatWeekday(date: Date) {
@@ -205,6 +246,7 @@ export function DashboardDailyPanels({
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-7 lg:gap-3">
         {weekDays.map(({ day, index }) => {
           const tone = getTone(day.score);
+          const accent = getDayAccentClasses(day.operatingMode);
           const active = index === activeIndex;
 
           return (
@@ -217,11 +259,11 @@ export function DashboardDailyPanels({
               onBlur={() => setHoveredIndex(null)}
               onClick={() => setSelectedIndex(index)}
               className={cn(
-                "grid min-h-[8.85rem] w-full gap-3 rounded-[22px] border px-4 py-4 text-left transition",
+                "grid min-h-[10rem] w-full gap-3.5 rounded-[22px] border px-4 py-5 text-left transition shadow-[0_10px_24px_rgba(31,41,51,0.05)]",
                 tone.row,
                 active
-                  ? "shadow-[var(--surface-shadow)] ring-1 ring-[#B7A9D6]/60"
-                  : "hover:border-[#D8A7A7] hover:shadow-[var(--surface-shadow)]",
+                  ? cn("shadow-[var(--surface-shadow)] ring-1", accent.ring)
+                  : cn(accent.hover, "hover:shadow-[var(--surface-shadow)]"),
               )}
             >
               <div className="flex items-start justify-between gap-3">
@@ -236,12 +278,7 @@ export function DashboardDailyPanels({
                 <span
                   className={cn(
                     "inline-flex h-10 min-w-10 items-center justify-center rounded-full border text-[13px] font-semibold shadow-[0_4px_12px_rgba(0,0,0,0.04)]",
-                    tone.text,
-                    day.score >= 70
-                      ? "border-[#E7CACA] bg-[#FCF5F5]"
-                      : day.score >= 45
-                        ? "border-[#ECDDBF] bg-[#FDF8EF]"
-                        : "border-[#D7E5DC] bg-[#F4FBF6]",
+                    accent.score,
                   )}
                 >
                   {day.score}
@@ -259,7 +296,7 @@ export function DashboardDailyPanels({
                 </span>
                 <div className="h-1.5 overflow-hidden rounded-full bg-[#F3EDE6]">
                   <div
-                    className={cn("h-full rounded-full", tone.bar)}
+                    className={cn("h-full rounded-full", accent.progress)}
                     style={{ width: `${Math.max(10, Math.min(100, day.score))}%` }}
                   />
                 </div>

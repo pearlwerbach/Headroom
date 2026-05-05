@@ -570,7 +570,7 @@ export default async function DashboardPage({
   return (
     <AppShell heading="Dashboard" userName={user.name}>
       <main className="space-y-8">
-        <section className="mb-8 rounded-[28px] border border-[#D2DCE3] bg-[#E8EEF2] px-6 py-5 text-[#2C2A3A] shadow-[0_1px_2px_rgba(31,41,51,0.04)] backdrop-blur md:px-7 md:py-5.5">
+        <section className="mb-8 rounded-[28px] border border-[#D4CDD9] bg-[#E5E3EA] px-6 py-5 text-[#2C2A3A] shadow-[0_1px_2px_rgba(31,41,51,0.04)] backdrop-blur md:px-7 md:py-5.5">
           <div className="flex flex-col gap-3.5 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-2.5">
               <h1 className="font-serif text-[2rem] leading-tight text-[#2C2A3A]">
@@ -685,7 +685,7 @@ export default async function DashboardPage({
             {subtypePresentation || composition.bars.length > 0 ? (
               <section className="grid gap-8 xl:grid-cols-[minmax(0,1.18fr)_minmax(320px,0.82fr)] xl:items-start xl:gap-9">
                 {subtypePresentation ? (
-                  <section className="rounded-[34px] border border-[#D2DCE3] bg-[#E8EEF2] px-9 py-9 shadow-[0_1px_2px_rgba(31,41,51,0.04)] backdrop-blur">
+                  <section className="rounded-[34px] border border-[#D4CDD9] bg-[#E5E3EA] px-9 py-9 shadow-[0_1px_2px_rgba(31,41,51,0.04)] backdrop-blur">
                     <div className="space-y-2.5">
                       <h2 className="max-w-3xl font-serif text-[2.05rem] leading-[1.08] text-slate-950 xl:text-[2.15rem]">
                         {subtypePresentation.name}
