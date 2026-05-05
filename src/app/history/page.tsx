@@ -25,7 +25,7 @@ function getLoadTone(score: number) {
   }
 
   if (score >= 45) {
-    return "border-[#D1B06C] bg-[#F6EACF] text-[#785725]";
+    return "border-[#D1B07A] bg-[#EAD9B8] text-[#6B4E2E]";
   }
 
   return "border-[#AFC6B5] bg-[#E6EFE8] text-[#3F5E4B]";
@@ -207,7 +207,7 @@ export default async function HistoryPage() {
               return (
                 <article
                   key={`${entry.weekStart.toISOString()}-${entry.weekEnd.toISOString()}`}
-                  className="rounded-[26px] border border-[rgba(31,41,51,0.08)] bg-[#FBFAF7] px-7 py-8 shadow-[0_1px_2px_rgba(31,41,51,0.03)]"
+                  className="rounded-[26px] border border-[#E2DBD2] bg-[#F7F4EF] px-7 py-8 shadow-[0_10px_24px_rgba(31,41,51,0.05)]"
                 >
                   <div className="flex flex-col gap-3.5 xl:flex-row xl:items-start xl:justify-between">
                     <div className="space-y-1.5">
@@ -215,7 +215,7 @@ export default async function HistoryPage() {
                         {formatRange(entry.weekStart, entry.weekEnd)}
                       </p>
                       <div
-                        className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-[15px] font-semibold ${getLoadTone(entry.overallLoadScore)}`}
+                        className={`inline-flex items-center gap-2 rounded-full border px-4.5 py-2.5 text-[15px] font-semibold ${getLoadTone(entry.overallLoadScore)}`}
                       >
                         <span className="font-semibold text-[rgba(31,41,51,0.95)]">{getLoadLabel(entry.overallLoadScore)}</span>
                         <span className="opacity-70">·</span>
@@ -243,12 +243,12 @@ export default async function HistoryPage() {
                           className="rounded-[18px] border border-[rgba(31,41,51,0.06)] bg-[rgba(31,41,51,0.04)] px-3.5 py-2.5"
                         >
                           <div className="flex items-center justify-between gap-3">
-                            <p className="text-[12px] font-normal text-slate-500">{item.label}</p>
+                            <p className="text-[12px] font-medium text-[#3A3A3A]">{item.label}</p>
                             <p className="text-[13px] font-semibold text-slate-800">
                               {formatHours(item.value)}
                             </p>
                           </div>
-                          <div className="mt-2 h-[5px] overflow-hidden rounded-full bg-[rgba(31,41,51,0.08)]">
+                          <div className="mt-2 h-[6px] overflow-hidden rounded-full bg-[#E3DED7]">
                             <div
                               className="h-full rounded-full bg-[#2C2A3A]"
                               style={{ width: `${getMetricPercent(item.value, item.max)}%` }}
@@ -258,17 +258,20 @@ export default async function HistoryPage() {
                       ))}
                     </div>
 
-                    <HistoryFeedbackControls
-                      weekStart={entry.weekStart.toISOString()}
-                      weekEnd={entry.weekEnd.toISOString()}
-                      feltLoad={entry.feedback.feltLoad}
-                      recoveryQuality={entry.feedback.recoveryQuality}
-                    />
+                    <div className="border-t border-[rgba(31,41,51,0.08)] pt-4">
+                      <HistoryFeedbackControls
+                        weekStart={entry.weekStart.toISOString()}
+                        weekEnd={entry.weekEnd.toISOString()}
+                        feltLoad={entry.feedback.feltLoad}
+                        recoveryQuality={entry.feedback.recoveryQuality}
+                      />
+                    </div>
 
                     <div className="pt-1">
-                      <p className="text-[14px] leading-6 text-[rgba(91,107,115,0.72)]">
+                      <p className="flex items-center gap-2 text-[14px] leading-6 text-[rgba(91,107,115,0.72)]">
+                        <span className="inline-block h-2 w-2 rounded-full bg-[#B28E98]" />
                         <span className="font-medium">Primary pattern:</span>{" "}
-                        <span className="font-medium text-[rgba(31,41,51,0.82)]">
+                        <span className="font-semibold text-[rgba(31,41,51,0.88)]">
                           {getPlanningPattern(entry)}
                         </span>
                       </p>

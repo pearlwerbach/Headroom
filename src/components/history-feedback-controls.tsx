@@ -56,8 +56,8 @@ function SegmentedRow<T extends string>({
               onClick={() => onSelect(option.value)}
               className={
                 active
-                  ? "rounded-full border border-[rgba(31,41,51,0.10)] bg-[rgba(31,41,51,0.08)] px-3 py-1.5 text-[13px] font-medium text-[rgba(31,41,51,0.86)]"
-                  : "rounded-full border border-[rgba(31,41,51,0.08)] bg-white px-3 py-1.5 text-[13px] font-medium text-[rgba(91,107,115,0.78)] transition hover:border-[rgba(31,41,51,0.14)] hover:text-[rgba(31,41,51,0.82)]"
+                  ? "rounded-full border border-[#CFC6BA] bg-[#E6E1DA] px-3 py-1.5 text-[13px] font-medium text-[#3A3A3A]"
+                  : "rounded-full border border-[rgba(31,41,51,0.08)] bg-[#F4F1EC] px-3 py-1.5 text-[13px] font-medium text-[rgba(91,107,115,0.74)] transition hover:border-[rgba(31,41,51,0.14)] hover:text-[rgba(31,41,51,0.82)]"
               }
             >
               {option.label}
@@ -109,7 +109,7 @@ export function HistoryFeedbackControls({
   };
 
   return (
-    <div className="space-y-3 rounded-[18px] border border-[rgba(31,41,51,0.06)] bg-[rgba(255,255,255,0.7)] px-4 py-4">
+    <div className="space-y-3 rounded-[18px] border border-[rgba(31,41,51,0.05)] bg-[#FBF9F6] px-4 py-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-[12px] font-medium text-[rgba(91,107,115,0.72)]">How it felt</p>
         <p className="text-[11px] text-[rgba(91,107,115,0.64)]">
