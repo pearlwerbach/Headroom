@@ -128,25 +128,25 @@ function getZoneLayout(groups: ZoneGroups) {
   return {
     morning:
       groups.morning.length > 1
-        ? "flex min-w-0 items-center justify-center gap-2"
-        : "flex min-w-0 items-center justify-center gap-2.5",
+        ? "flex min-w-0 items-center justify-start gap-2 overflow-hidden"
+        : "flex min-w-0 items-center justify-start gap-2.5 overflow-hidden",
     afternoon:
       groups.afternoon.length > 1
-        ? "flex min-w-0 items-center justify-center gap-2"
-        : "flex min-w-0 items-center justify-center gap-2.5",
+        ? "flex min-w-0 items-center justify-center gap-2 overflow-hidden"
+        : "flex min-w-0 items-center justify-center gap-2.5 overflow-hidden",
     evening:
       groups.evening.length > 1
-        ? "flex min-w-0 items-center justify-center gap-2"
-        : "flex min-w-0 items-center justify-center gap-2.5",
+        ? "flex min-w-0 items-center justify-end gap-2 overflow-hidden"
+        : "flex min-w-0 items-center justify-end gap-2.5 overflow-hidden",
   };
 }
 
 function getSegmentSizeClasses(segmentCount: number) {
   if (segmentCount <= 1) {
-    return "w-fit max-w-full min-w-[155px] max-w-[230px] flex-none";
+    return "w-full min-w-0 max-w-[230px] flex-none";
   }
 
-  return "w-fit max-w-full min-w-[145px] max-w-[210px] flex-none";
+  return "min-w-0 max-w-[210px] flex-1 basis-0";
 }
 
 function getSegmentIcon(tone: RecoveryIslandSegment["tone"]) {
@@ -202,7 +202,7 @@ export function RecoveryIslandsVisual({
                   </p>
                 </div>
                 <div
-                  className="grid grid-cols-3 items-center gap-3 rounded-[20px] border border-[rgba(91,120,103,0.14)] bg-[rgba(255,255,255,0.62)] px-5"
+                  className="relative overflow-hidden grid grid-cols-3 items-center gap-3 rounded-[20px] border border-[rgba(91,120,103,0.14)] bg-[rgba(255,255,255,0.62)] px-5"
                   style={{ height: `${rowHeight}px` }}
                 >
                   {(["morning", "afternoon", "evening"] as RecoveryZone[]).map((zone) => (
