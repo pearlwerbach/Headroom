@@ -1,12 +1,25 @@
 import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
+import { cookies } from "next/headers";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { AssessmentAccessGate } from "@/components/assessment-access-gate";
 import { AppShell } from "@/components/app-shell";
 import { OnboardingQuiz } from "@/components/onboarding-quiz";
 import { ProfileReport } from "@/components/profile-report";
 import { getServerAuthSession, isGoogleOAuthConfigured } from "@/lib/auth";
 import { SITE_COPY } from "@/lib/copy";
+import { getConfiguredLocalOriginRedirect } from "@/lib/local-origin";
 import { prisma } from "@/lib/prisma";
+import { PROFILE_SAVE_TRACE_COOKIE, PROFILE_SAVE_USER_COOKIE, parseProfileSaveTrace } from "@/lib/profile-save-trace";
+
+function buildRequestOrigin(headersList: Headers) {
+  const origin = headersList.get("origin");
+  const host = headersList.get("x-forwarded-host") ?? headersList.get("host");
+  const proto = headersList.get("x-forwarded-proto") ?? "http";
+
+  return origin ?? (host ? `${proto}://${host}` : null);
+}
 
 export default async function OnboardingPage({
   searchParams,
@@ -19,7 +32,35 @@ export default async function OnboardingPage({
   const params = searchParams ? await searchParams : undefined;
   const editMode = params?.edit === "1";
   const completeMode = params?.complete === "1";
+  const traceMode = params?.trace === "1";
   const returnTo = params?.returnTo === "settings" ? "settings" : "onboarding";
+  const headerStore = await headers();
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params ?? {})) {
+    if (typeof value === "string") {
+      search.set(key, value);
+    } else if (Array.isArray(value)) {
+      for (const item of value) {
+        if (typeof item === "string") {
+          search.append(key, item);
+        }
+      }
+    }
+  }
+  const localOriginRedirect = getConfiguredLocalOriginRedirect(
+    headerStore,
+    `/onboarding${search.size ? `?${search.toString()}` : ""}`,
+  );
+
+  if (localOriginRedirect) {
+    redirect(localOriginRedirect);
+  }
+
+  const cookieStore = await cookies();
+  const trace = parseProfileSaveTrace(cookieStore.get(PROFILE_SAVE_TRACE_COOKIE)?.value);
+  const fallbackUserId = cookieStore.get(PROFILE_SAVE_USER_COOKIE)?.value ?? null;
+  const fallbackProfileId = trace?.persistedProfile?.id ?? null;
+
   const [profile, googleAccount] = user?.id
     ? await Promise.all([
         prisma.workProfile.findFirst({
@@ -31,16 +72,53 @@ export default async function OnboardingPage({
           select: { id: true },
         }),
       ])
-    : [null, null];
+    : fallbackProfileId
+      ? [
+          await prisma.workProfile.findUnique({
+            where: { id: fallbackProfileId },
+          }),
+          null,
+        ]
+      : fallbackUserId
+        ? [
+            await prisma.workProfile.findUnique({
+              where: { userId: fallbackUserId },
+            }),
+            null,
+          ]
+        : [null, null];
   const showConnectGoogleAction = !googleAccount;
   const googleOAuthConfigured = isGoogleOAuthConfigured();
 
+  console.info("[onboarding-debug] page load", {
+    pathname: "/onboarding",
+    editMode,
+    completeMode,
+    traceMode,
+    requestOrigin: buildRequestOrigin(headerStore),
+    referer: headerStore.get("referer"),
+    cookieHeader: headerStore.get("cookie"),
+    hasNextAuthSessionToken:
+      cookieStore.has("next-auth.session-token") || cookieStore.has("__Secure-next-auth.session-token"),
+    cookies: cookieStore.getAll().map(({ name, value }) => ({
+      name,
+      valuePreview: value.slice(0, 16),
+    })),
+    sessionUserId: user?.id ?? null,
+    sessionUserEmail: user?.email ?? null,
+    fallbackUserId,
+    fallbackProfileId,
+    resolvedProfileId: profile?.id ?? null,
+    resolvedSubtypeName: profile?.subtypeName ?? null,
+    showResult: Boolean(profile && !editMode),
+  });
+
   return (
     <>
-      {user && profile && !editMode ? (
+      {profile && !editMode ? (
         <AppShell
           heading="Work & Recovery Profile"
-          userName={user.name}
+          userName={user?.name}
           variant="profileReport"
         >
           <main>

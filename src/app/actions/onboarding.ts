@@ -1,6 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -9,10 +10,11 @@ import { SITE_COPY } from "@/lib/copy";
 import { scoreQuizAnswers } from "@/lib/onboarding";
 import {
   PROFILE_SAVE_TRACE_COOKIE,
+  PROFILE_SAVE_USER_COOKIE,
   serializeProfileSaveTrace,
 } from "@/lib/profile-save-trace";
 import { appendProfileWriteTrace } from "@/lib/profile-write-trace";
-import { requireUser } from "@/lib/session";
+import { getSessionDebugInfo } from "@/lib/session";
 
 export interface ActionState {
   status: "idle" | "success" | "error";
@@ -72,13 +74,56 @@ function buildWorkProfileWritePayload(profile: ReturnType<typeof scoreQuizAnswer
   };
 }
 
+function buildRequestOrigin(headersList: Headers) {
+  const origin = headersList.get("origin");
+  const host = headersList.get("x-forwarded-host") ?? headersList.get("host");
+  const proto = headersList.get("x-forwarded-proto") ?? "http";
+
+  return origin ?? (host ? `${proto}://${host}` : null);
+}
+
 export async function submitOnboardingAction(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const user = await requireUser();
+  const headerStore = await headers();
+  const cookieStore = await cookies();
+  const headerCookie = headerStore.get("cookie");
+
+  console.info("[onboarding-debug] submit request transport", {
+    requestOrigin: buildRequestOrigin(headerStore),
+    referer: headerStore.get("referer"),
+    cookieHeader: headerCookie,
+    hasNextAuthSessionToken:
+      cookieStore.has("next-auth.session-token") || cookieStore.has("__Secure-next-auth.session-token"),
+    cookies: cookieStore.getAll().map(({ name, value }) => ({
+      name,
+      valuePreview: value.slice(0, 16),
+    })),
+  });
+
+  const sessionDebug = await getSessionDebugInfo("submitOnboardingAction:beforeSave");
+  const user = sessionDebug.user;
   const rawAnswers = formData.get("answers");
   const returnTo = formData.get("returnTo");
+
+  if (!user?.id) {
+    console.error("[onboarding-debug] missing session user during submit", {
+      returnTo,
+      cookieNames: sessionDebug.cookieNames,
+    });
+
+    return {
+      status: "error",
+      message: "We couldn't verify your onboarding session while saving. Refresh and try again.",
+    };
+  }
+
+  console.info("[onboarding-debug] submit started", {
+    userId: user.id,
+    userEmail: user.email ?? null,
+    returnTo,
+  });
 
   if (typeof rawAnswers !== "string") {
     return {
@@ -124,7 +169,7 @@ export async function submitOnboardingAction(
     orderBy: { updatedAt: "desc" },
   });
   if (postWriteRow) {
-    await appendProfileWriteTrace({
+  await appendProfileWriteTrace({
       callsite: "submitOnboardingAction",
       timestamp: new Date().toISOString(),
       rowId: postWriteRow.id,
@@ -139,7 +184,6 @@ export async function submitOnboardingAction(
   });
 
   if (process.env.PROFILE_MODEL_DEBUG === "true") {
-    const cookieStore = await cookies();
     cookieStore.set(
       PROFILE_SAVE_TRACE_COOKIE,
       serializeProfileSaveTrace({
@@ -204,17 +248,43 @@ export async function submitOnboardingAction(
     );
   }
 
+  cookieStore.set(PROFILE_SAVE_USER_COOKIE, user.id, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 10,
+  });
+
+  console.info("[onboarding-debug] profile save succeeded", {
+    userId: user.id,
+    savedProfileId: savedProfile.id,
+    subtypeName: savedProfile.subtypeName,
+    returnTo,
+  });
+
   revalidatePath("/dashboard");
   revalidatePath("/onboarding");
   revalidatePath("/settings");
 
   if (returnTo === "settings") {
+    console.info("[onboarding-debug] redirecting after save", {
+      userId: user.id,
+      target: "/settings?profileSaved=1&trace=1",
+    });
     redirect("/settings?profileSaved=1&trace=1");
   }
 
   if (returnTo === "onboarding") {
+    console.info("[onboarding-debug] redirecting after save", {
+      userId: user.id,
+      target: "/onboarding?complete=1&trace=1",
+    });
     redirect("/onboarding?complete=1&trace=1");
   }
 
+  console.info("[onboarding-debug] redirecting after save", {
+    userId: user.id,
+    target: "/onboarding/analyzing",
+  });
   redirect("/onboarding/analyzing");
 }

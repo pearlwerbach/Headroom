@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
 import { AuthButton } from "@/components/auth-button";
 import { SITE_COPY } from "@/lib/copy";
+import { getConfiguredLocalOriginRedirect } from "@/lib/local-origin";
 import {
   getAuthModeConfig,
   type GoogleAuthStartIssueCode,
   getServerAuthSession,
 } from "@/lib/auth";
+import { headers } from "next/headers";
 
 function getAuthErrorMessage(
   error?: string | string[] | undefined,
@@ -54,13 +56,34 @@ export default async function Home({
 }: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const headerStore = await headers();
   const session = await getServerAuthSession();
   const authMode = getAuthModeConfig();
   const resolvedSearchParams = (await searchParams) ?? {};
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(resolvedSearchParams)) {
+    if (typeof value === "string") {
+      search.set(key, value);
+    } else if (Array.isArray(value)) {
+      for (const item of value) {
+        if (typeof item === "string") {
+          search.append(key, item);
+        }
+      }
+    }
+  }
+  const localOriginRedirect = getConfiguredLocalOriginRedirect(
+    headerStore,
+    `/${search.size ? `?${search.toString()}` : ""}`,
+  );
   const authErrorMessage = getAuthErrorMessage(
     resolvedSearchParams.error,
     resolvedSearchParams.authError,
   );
+
+  if (localOriginRedirect) {
+    redirect(localOriginRedirect);
+  }
 
   if (session?.user?.id) {
     redirect("/dashboard");

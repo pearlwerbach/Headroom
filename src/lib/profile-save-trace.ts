@@ -1,4 +1,5 @@
 export const PROFILE_SAVE_TRACE_COOKIE = "profile-save-trace";
+export const PROFILE_SAVE_USER_COOKIE = "profile-save-user";
 
 export interface ProfileSaveTrace {
   submittedRawAnswers: Record<string, string>;

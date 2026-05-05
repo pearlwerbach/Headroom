@@ -241,6 +241,11 @@ providers.push(
     async authorize() {
       const user = await ensureAssessmentUser();
 
+      console.info("[auth-debug] assessment authorize", {
+        userId: user.id,
+        userEmail: user.email ?? null,
+      });
+
       return {
         id: user.id,
         email: user.email ?? undefined,
@@ -308,6 +313,10 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async signIn({ account }) {
+      console.info("[auth-debug] signIn callback", {
+        provider: account?.provider ?? null,
+      });
+
       if (account?.provider === "google") {
         await preserveGoogleRefreshToken(account);
       }
@@ -319,6 +328,11 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
       }
 
+       console.info("[auth-debug] jwt callback", {
+        userId: user?.id ?? null,
+        tokenId: typeof token.id === "string" ? token.id : null,
+      });
+
       return token;
     },
     async session({ session, token, user }) {
@@ -328,6 +342,12 @@ export const authOptions: NextAuthOptions = {
           user?.id ||
           session.user.id;
       }
+
+      console.info("[auth-debug] session callback", {
+        sessionUserId: session.user?.id ?? null,
+        tokenId: typeof token.id === "string" ? token.id : null,
+        callbackUserId: user?.id ?? null,
+      });
 
       return session;
     },

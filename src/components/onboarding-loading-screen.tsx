@@ -31,7 +31,7 @@ export function OnboardingLoadingScreen() {
     }, stepDuration);
 
     const finishTimer = window.setTimeout(() => {
-      router.replace("/onboarding?complete=1");
+      router.replace("/onboarding?complete=1&trace=1");
     }, DURATION_MS);
 
     return () => {
