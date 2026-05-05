@@ -94,23 +94,34 @@ export default async function OnboardingPage({
           <div className="theme-shell-wash pointer-events-none absolute inset-0" />
 
           <div className="relative mx-auto w-full max-w-7xl">
-            <header className="rounded-[32px] border border-slate-200/70 bg-slate-950 px-6 py-6 text-white shadow-[0_30px_90px_-60px_rgba(15,23,42,0.75)] sm:px-8 sm:py-7 lg:px-10 lg:py-8">
-              <div className="max-w-4xl">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-300/90">
-                  {SITE_COPY.onboarding.COPY_ONBOARDING_BRAND_01}
-                </p>
+            <div className="ml-[calc(50%-50vw)] mr-[calc(50%-50vw)] w-screen border-b border-[rgba(31,41,51,0.08)] bg-[#4F4654]">
+              <header className="mx-auto w-full max-w-7xl px-6 py-6 text-[#F8F7F5] sm:px-8 lg:px-10">
+                <div className="flex items-start justify-between gap-6">
+                  <div className="max-w-4xl">
+                    <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[rgba(248,247,245,0.74)] sm:text-base">
+                      {SITE_COPY.onboarding.COPY_ONBOARDING_BRAND_01}
+                    </p>
 
-                <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
-                  <h1 className="max-w-3xl font-serif text-[clamp(2rem,3.2vw,3rem)] leading-[0.98] tracking-tight text-white">
-                    {SITE_COPY.onboarding.COPY_ONBOARDING_HERO_HEADLINE_01}
-                  </h1>
+                    <div className="mt-3 border-t border-white/10 pt-3">
+                      <h1 className="max-w-3xl whitespace-nowrap font-serif text-[clamp(2.75rem,3.5vw,3.125rem)] leading-[1.02] tracking-tight text-[#F8F7F5]">
+                        {SITE_COPY.onboarding.COPY_ONBOARDING_HERO_HEADLINE_01}
+                      </h1>
 
-                  <p className="max-w-xl text-sm text-slate-300 sm:text-[15px]">
-                    {SITE_COPY.onboarding.COPY_ONBOARDING_HERO_BODY_01}
-                  </p>
+                      <p className="mt-3 max-w-xl text-sm text-[rgba(248,247,245,0.72)] sm:text-[15px]">
+                        {SITE_COPY.onboarding.COPY_ONBOARDING_HERO_BODY_01}
+                      </p>
+                    </div>
+                  </div>
+
+                  <Link
+                    href="/"
+                    className="mt-0.5 shrink-0 rounded-full px-3 py-2 text-sm font-medium text-[rgba(248,247,245,0.78)] transition hover:text-[#F8F7F5]"
+                  >
+                    Back to home
+                  </Link>
                 </div>
-              </div>
-            </header>
+              </header>
+            </div>
 
             <main className="relative z-10 mt-6 flex justify-center px-0 pb-6 sm:mt-8 lg:mt-10 lg:pb-8">
               <div className="w-full max-w-5xl">

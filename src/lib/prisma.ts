@@ -1,31 +1,12 @@
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
-import { Pool } from "pg";
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
-  pool?: Pool;
 };
-
-const connectionString =
-  process.env.DATABASE_URL ?? "postgresql://postgres:postgres@localhost:5432/cognitive_load_planner";
-
-const pool =
-  globalForPrisma.pool ??
-  new Pool({
-    connectionString,
-  });
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.pool = pool;
-}
-
-const adapter = new PrismaPg(pool);
 
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
-    adapter,
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
   });
 
@@ -37,8 +18,6 @@ export async function disconnectPrisma() {
   await prisma.$disconnect();
 
   if (process.env.NODE_ENV !== "production") {
-    await pool.end();
-    globalForPrisma.pool = undefined;
     globalForPrisma.prisma = undefined;
   }
 }

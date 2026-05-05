@@ -67,7 +67,7 @@ export default async function Home({
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#F7F2EC]">
+    <div className="relative min-h-screen overflow-hidden">
       <div className="theme-page-wash pointer-events-none absolute inset-0" />
       <main className="relative mx-auto flex min-h-screen max-w-7xl flex-col justify-between px-6 py-10 lg:px-10">
         <div className="ml-[calc(50%-50vw)] mr-[calc(50%-50vw)] w-screen border-b border-[rgba(0,0,0,0.06)] bg-[#C8C1CC]">
@@ -187,22 +187,22 @@ export default async function Home({
         </section>
 
         <section className="pb-12">
-          <div className="rounded-[28px] border border-[#C8BAC2] bg-[#D8CDD3] px-8 py-8 shadow-[0_10px_24px_rgba(31,41,51,0.05)]">
-            <div className="mx-auto max-w-5xl text-center">
+          <div className="mx-auto max-w-[960px] rounded-[28px] border border-[#C8BAC2] bg-[#D8CDD3] px-8 py-7 shadow-[0_10px_24px_rgba(31,41,51,0.05)]">
+            <div className="mx-auto max-w-4xl text-center">
               <p className="mx-auto text-xl font-medium leading-tight text-[#263241]">
                 Headroom reads your week through four signals:
               </p>
             </div>
-            <div className="mt-6 flex justify-center">
-              <div className="flex w-full max-w-5xl items-center justify-center gap-4 xl:flex-nowrap">
-              {SITE_COPY.landing.COPY_LANDING_INPUT_LABELS.map((label) => (
-                <div
-                  key={label}
-                  className="rounded-[22px] border border-[#C9BBC3] bg-[#F7F3F0] px-4 py-4"
-                >
-                  <p className="text-sm font-semibold text-[#263241]">{label}</p>
-                </div>
-              ))}
+            <div className="mt-5 flex justify-center">
+              <div className="flex w-full items-center justify-center gap-4 xl:flex-nowrap">
+                {SITE_COPY.landing.COPY_LANDING_INPUT_LABELS.map((label) => (
+                  <div
+                    key={label}
+                    className="rounded-[22px] border border-[#C9BBC3] bg-[#F7F3F0] px-4 py-4"
+                  >
+                    <p className="text-sm font-semibold text-[#263241]">{label}</p>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

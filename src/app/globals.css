@@ -3,14 +3,15 @@
 @tailwind utilities;
 
 :root {
-  --background: #f4f1ec;
+  --color-background: #f6f2ec;
+  --background: var(--color-background);
   --foreground: #1c1a24;
   --surface-strong: #2c2a3a;
   --muted-strong: #866477;
   --bg-wash-primary: rgba(216, 167, 167, 0.05);
   --bg-wash-secondary: rgba(183, 169, 214, 0.05);
-  --bg-base-start: #f4f1ec;
-  --bg-base-end: #f4f1ec;
+  --bg-base-start: var(--color-background);
+  --bg-base-end: var(--color-background);
   --color-primary: #2c2a3a;
   --color-secondary: #866477;
   --color-accent: #efe7df;
@@ -32,8 +33,8 @@
   --surface-strong: #b28b61;
   --bg-wash-primary: rgba(196, 154, 112, 0.14);
   --bg-wash-secondary: rgba(227, 198, 168, 0.11);
-  --bg-base-start: #fdfaf6;
-  --bg-base-end: #f6f1ea;
+  --bg-base-start: var(--color-background);
+  --bg-base-end: var(--color-background);
   --color-primary: #a27a54;
   --color-secondary: #c29a72;
   --color-accent: #f1e5d7;
@@ -49,8 +50,8 @@
   --surface-strong: #73907d;
   --bg-wash-primary: rgba(139, 171, 148, 0.14);
   --bg-wash-secondary: rgba(188, 210, 193, 0.1);
-  --bg-base-start: #f8fbf8;
-  --bg-base-end: #eff4f0;
+  --bg-base-start: var(--color-background);
+  --bg-base-end: var(--color-background);
   --color-primary: #6b8875;
   --color-secondary: #90aa97;
   --color-accent: #dfe9e1;
@@ -71,7 +72,7 @@ html {
 }
 
 body {
-  background: var(--bg-base-start);
+  background: var(--color-background);
   color: var(--foreground);
   font-family: "Inter Tight", "Inter", "Avenir Next", "Trebuchet MS", sans-serif;
   font-size: 16px;

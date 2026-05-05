@@ -40,7 +40,7 @@ export function OnboardingQuiz({ returnTo }: OnboardingQuizProps) {
     <form ref={formRef} action={formAction} className="space-y-5">
       <input type="hidden" name="answers" value={serializedAnswers} />
       {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
-      <div className="rounded-[32px] border border-slate-200/90 bg-white p-6 shadow-[0_32px_90px_-44px_rgba(15,23,42,0.34)] sm:p-8 lg:min-h-[540px] lg:px-10 lg:py-8">
+      <div className="rounded-[32px] border border-[#E2D8D1] bg-white p-6 shadow-[0_18px_40px_rgba(31,41,51,0.07)] sm:p-8 lg:min-h-[540px] lg:px-10 lg:py-8">
         <div className="mb-3 flex items-center justify-between gap-4">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted-strong)]">
             {SITE_COPY.onboarding.COPY_ONBOARDING_PROGRESS_LABEL_01(step + 1, quizQuestions.length)}
@@ -50,9 +50,9 @@ export function OnboardingQuiz({ returnTo }: OnboardingQuizProps) {
           </div>
         </div>
 
-        <div className="mb-6 h-2 overflow-hidden rounded-full bg-slate-100">
+        <div className="mb-6 h-2 overflow-hidden rounded-full bg-[#EEE9EC]">
           <div
-            className="theme-progress-bar h-full rounded-full transition-[width] duration-200 ease-out"
+            className="h-full rounded-full bg-[#8E7B91] transition-[width] duration-200 ease-out"
             style={{ width: `${((step + 1) / quizQuestions.length) * 100}%` }}
           />
         </div>
@@ -117,7 +117,7 @@ export function OnboardingQuiz({ returnTo }: OnboardingQuizProps) {
               <button
                 type="submit"
                 data-submit-profile
-                className="theme-button-primary inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition hover:-translate-y-0.5 disabled:opacity-40"
+                className="inline-flex items-center gap-2 rounded-full border border-[rgba(255,255,255,0.08)] bg-[#4A3F48] px-5 py-2.5 text-sm font-semibold text-[rgba(255,255,255,0.95)] shadow-[0_2px_6px_rgba(0,0,0,0.08)] transition hover:-translate-y-0.5 hover:bg-[#3F353D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(74,63,72,0.4)] focus-visible:ring-offset-2 focus-visible:ring-offset-white active:bg-[#362C33] disabled:opacity-40"
                 disabled={!isComplete || pending}
               >
                 {pending
