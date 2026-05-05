@@ -215,7 +215,7 @@ export default async function HistoryPage() {
                         {formatRange(entry.weekStart, entry.weekEnd)}
                       </p>
                       <div
-                        className={`inline-flex items-center gap-2 rounded-full border px-4.5 py-2.5 text-[15px] font-semibold ${getLoadTone(entry.overallLoadScore)}`}
+                        className={`inline-flex min-w-0 items-center gap-2 rounded-full border px-4.5 py-2.5 text-[15px] font-semibold ${getLoadTone(entry.overallLoadScore)}`}
                       >
                         <span className="font-semibold text-[rgba(31,41,51,0.95)]">{getLoadLabel(entry.overallLoadScore)}</span>
                         <span className="opacity-70">·</span>
@@ -234,7 +234,7 @@ export default async function HistoryPage() {
                   </div>
 
                   <div className="mt-5 space-y-5">
-                    <p className="text-[16px] leading-7 text-[rgba(31,41,51,0.85)]">{buildComparison(entry, previous)}</p>
+                    <p className="text-[16px] leading-7 text-[#3A3A3A]">{buildComparison(entry, previous)}</p>
 
                     <div className="grid gap-2.5 md:grid-cols-2 xl:grid-cols-4">
                       {metricItems.map((item) => (
@@ -248,9 +248,9 @@ export default async function HistoryPage() {
                               {formatHours(item.value)}
                             </p>
                           </div>
-                          <div className="mt-2 h-[6px] overflow-hidden rounded-full bg-[#E3DED7]">
+                          <div className="mt-2 h-[7px] overflow-hidden rounded-full bg-[#E3DED7]">
                             <div
-                              className="h-full rounded-full bg-[#2C2A3A]"
+                              className="h-full rounded-full bg-[#2B2636]"
                               style={{ width: `${getMetricPercent(item.value, item.max)}%` }}
                             />
                           </div>
@@ -258,7 +258,7 @@ export default async function HistoryPage() {
                       ))}
                     </div>
 
-                    <div className="border-t border-[rgba(31,41,51,0.08)] pt-4">
+                    <div className="border-t border-[#E2DBD2] pt-4">
                       <HistoryFeedbackControls
                         weekStart={entry.weekStart.toISOString()}
                         weekEnd={entry.weekEnd.toISOString()}
@@ -269,9 +269,9 @@ export default async function HistoryPage() {
 
                     <div className="pt-1">
                       <p className="flex items-center gap-2 text-[14px] leading-6 text-[rgba(91,107,115,0.72)]">
-                        <span className="inline-block h-2 w-2 rounded-full bg-[#B28E98]" />
+                        <span className="inline-block h-2 w-2 rounded-full bg-[#8F737C]" />
                         <span className="font-medium">Primary pattern:</span>{" "}
-                        <span className="font-semibold text-[rgba(31,41,51,0.88)]">
+                        <span className="font-bold text-[rgba(31,41,51,0.88)]">
                           {getPlanningPattern(entry)}
                         </span>
                       </p>
