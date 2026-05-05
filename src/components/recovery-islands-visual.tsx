@@ -80,6 +80,7 @@ function getSegmentZone(segment: RecoveryIslandSegment) {
 
 type RecoveryZone = "morning" | "afternoon" | "evening";
 type ZoneGroups = Record<RecoveryZone, RecoveryIslandSegment[]>;
+const MAX_VISIBLE_SEGMENTS_PER_ZONE = 2;
 
 function formatRecoveryZone(zone: RecoveryZone) {
   switch (zone) {
@@ -128,25 +129,29 @@ function getZoneLayout(groups: ZoneGroups) {
   return {
     morning:
       groups.morning.length > 1
-        ? "flex min-w-0 items-center justify-start gap-2 overflow-hidden"
-        : "flex min-w-0 items-center justify-start gap-2.5 overflow-hidden",
+        ? "flex h-full min-w-0 flex-wrap content-center items-center justify-start gap-2 overflow-hidden"
+        : "flex h-full min-w-0 flex-wrap content-center items-center justify-start gap-2.5 overflow-hidden",
     afternoon:
       groups.afternoon.length > 1
-        ? "flex min-w-0 items-center justify-center gap-2 overflow-hidden"
-        : "flex min-w-0 items-center justify-center gap-2.5 overflow-hidden",
+        ? "flex h-full min-w-0 flex-wrap content-center items-center justify-start gap-2 overflow-hidden"
+        : "flex h-full min-w-0 flex-wrap content-center items-center justify-start gap-2.5 overflow-hidden",
     evening:
       groups.evening.length > 1
-        ? "flex min-w-0 items-center justify-end gap-2 overflow-hidden"
-        : "flex min-w-0 items-center justify-end gap-2.5 overflow-hidden",
+        ? "flex h-full min-w-0 flex-wrap content-center items-center justify-start gap-2 overflow-hidden"
+        : "flex h-full min-w-0 flex-wrap content-center items-center justify-start gap-2.5 overflow-hidden",
   };
 }
 
 function getSegmentSizeClasses(segmentCount: number) {
   if (segmentCount <= 1) {
-    return "w-full min-w-0 max-w-[230px] flex-none";
+    return "min-w-0 max-w-full flex-1 basis-full sm:basis-auto sm:flex-none sm:max-w-[230px]";
   }
 
-  return "min-w-0 max-w-[210px] flex-1 basis-0";
+  return "min-w-0 max-w-full flex-1 basis-[calc(50%-0.25rem)] sm:max-w-[190px]";
+}
+
+function getVisibleSegments(segments: RecoveryIslandSegment[]) {
+  return segments.slice(0, MAX_VISIBLE_SEGMENTS_PER_ZONE);
 }
 
 function getSegmentIcon(tone: RecoveryIslandSegment["tone"]) {
@@ -171,7 +176,7 @@ export function RecoveryIslandsVisual({
   days: RecoveryIslandDay[];
 }) {
   const sortedDays = [...days].sort((left, right) => left.date.getDay() - right.date.getDay());
-  const rowHeight = 68;
+  const rowHeight = 84;
 
   return (
     <div className="w-full space-y-3 overflow-hidden">
@@ -206,14 +211,9 @@ export function RecoveryIslandsVisual({
                   style={{ height: `${rowHeight}px` }}
                 >
                   {(["morning", "afternoon", "evening"] as RecoveryZone[]).map((zone) => (
-                    <div
-                      key={zone}
-                      className={cn(
-                        "flex min-w-0 items-center justify-center",
-                        zoneLayout[zone],
-                      )}
-                    >
-                      {groups[zone].map((segment, index) => {
+                    <div key={zone} className="min-w-0 overflow-hidden py-2">
+                      <div className={cn("min-w-0", zoneLayout[zone])}>
+                        {getVisibleSegments(groups[zone]).map((segment, index) => {
                         const Icon = getSegmentIcon(segment.tone);
                         const periodLabel = formatRecoveryZone(zone);
                         const hasDetail = Boolean(segment.displayLabel);
@@ -242,7 +242,7 @@ export function RecoveryIslandsVisual({
                               <span className="flex min-w-0 flex-col justify-center gap-0">
                                 <span
                                   className={cn(
-                                    "m-0 block whitespace-nowrap font-semibold leading-tight text-[rgba(31,41,51,0.82)]",
+                                    "m-0 block truncate whitespace-nowrap font-semibold leading-tight text-[rgba(31,41,51,0.82)]",
                                     compact ? "text-[13px]" : "text-[13.5px]",
                                   )}
                                 >
@@ -250,7 +250,7 @@ export function RecoveryIslandsVisual({
                                 </span>
                                 <span
                                   className={cn(
-                                    "m-0 mt-0 block whitespace-nowrap font-medium tracking-[0.01em] leading-tight text-[rgba(91,107,115,0.68)]",
+                                    "m-0 mt-0 block truncate whitespace-nowrap font-medium tracking-[0.01em] leading-tight text-[rgba(91,107,115,0.68)]",
                                     compact ? "text-[10.5px]" : "text-[11px]",
                                   )}
                                 >
@@ -270,6 +270,12 @@ export function RecoveryIslandsVisual({
                           </div>
                         );
                       })}
+                        {groups[zone].length > MAX_VISIBLE_SEGMENTS_PER_ZONE ? (
+                          <span className="inline-flex h-[38px] min-w-0 max-w-full items-center rounded-full border border-[rgba(31,41,51,0.10)] bg-[rgba(255,255,255,0.72)] px-3 text-[12px] font-medium text-[rgba(91,107,115,0.78)]">
+                            +{groups[zone].length - MAX_VISIBLE_SEGMENTS_PER_ZONE} more
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                   ))}
                 </div>
