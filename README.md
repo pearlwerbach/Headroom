@@ -1,5 +1,7 @@
 # Headroom
 
+Maintained by Pearl Werbach, UC Berkeley Neuroscience and Data Science student.
+
 Stage 1 MVP for a calendar-aware cognitive load planner for students.
 
 ## What is included
