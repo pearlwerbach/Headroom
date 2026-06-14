@@ -301,8 +301,6 @@ function normalizeEvent(event: Awaited<ReturnType<typeof prisma.calendarEvent.fi
   return {
     id: event.id,
     title: event.title,
-    description: event.description,
-    location: event.location,
     startTime: event.startTime,
     endTime: event.endTime,
     allDay: event.allDay,

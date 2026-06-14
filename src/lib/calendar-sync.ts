@@ -127,8 +127,6 @@ export async function syncGoogleCalendar(userId: string) {
         },
         update: {
           title: event.summary ?? "Untitled event",
-          description: event.description,
-          location: event.location,
           startTime: start.date,
           endTime: end.date,
           allDay: start.allDay,
@@ -140,8 +138,6 @@ export async function syncGoogleCalendar(userId: string) {
           userId,
           externalId: event.id,
           title: event.summary ?? "Untitled event",
-          description: event.description,
-          location: event.location,
           startTime: start.date,
           endTime: end.date,
           allDay: start.allDay,

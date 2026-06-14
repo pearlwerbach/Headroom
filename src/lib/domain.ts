@@ -63,8 +63,6 @@ export interface CognitiveProfileSnapshot {
 export interface CalendarEventSnapshot {
   id: string;
   title: string;
-  description?: string | null;
-  location?: string | null;
   startTime: Date;
   endTime: Date;
   allDay: boolean;

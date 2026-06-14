@@ -592,7 +592,7 @@ export const SITE_COPY = {
     COPY_SETTINGS_GOOGLE_STATUS_NOT_CONNECTED_01: "Not connected",
     COPY_SETTINGS_GOOGLE_STATUS_NEXT7_01: "Next 7 days",
     COPY_SETTINGS_GOOGLE_BODY_01:
-      "Headroom only reads the calendars you include here. It analyzes the next 7 days and stores categories and insights — not raw event names.",
+      "Headroom only reads the calendars you include here. It analyzes the next 7 days and stores event titles and categories to power your dashboard — never descriptions, locations, or content.",
     COPY_SETTINGS_GOOGLE_CONNECT_DISABLED_01: "Connect Google Calendar",
     COPY_SETTINGS_GOOGLE_DISCONNECT_01: "Disconnect",
     COPY_SETTINGS_GOOGLE_OPEN_DASHBOARD_01: "Open dashboard",
